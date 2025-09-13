@@ -1,0 +1,595 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body,
+html,
+#root,
+#app {
+  /* Added #app to be safe */
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+}
+
+.app-container {
+  display: flex;
+  height: 100vh;
+}
+
+.sidebar {
+  width: 220px;
+  background-color: #252526;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar h2 {
+  font-size: 24px;
+  margin-bottom: 30px;
+}
+
+.sidebar nav ul {
+  list-style-type: none;
+}
+
+.sidebar nav li {
+  padding: 10px 0;
+  font-size: 18px;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.sidebar nav li:hover {
+  background-color: #333333;
+}
+
+.content {
+  flex-grow: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+/* Add these styles to the end of index.css */
+
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.btn-primary {
+  background-color: #0e639c;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-size: 16px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  background-color: #1177bb;
+}
+
+.project-list {
+  background-color: #252526;
+  padding: 20px;
+  border-radius: 5px;
+}
+
+/* Add these styles to the end of index.css */
+
+.workspace-container {
+  display: flex;
+  gap: 20px;
+  height: 100%;
+}
+
+.workspace-main {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.workspace-sidebar {
+  width: 280px;
+  flex-shrink: 0;
+}
+
+.check-in-panel,
+.unassigned-photos-panel,
+.active-customer-panel {
+  background-color: #252526;
+  padding: 20px;
+  border-radius: 5px;
+}
+
+.voucher-input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  background-color: #3c3c3c;
+  border: 1px solid #555;
+  color: #d4d4d4;
+  border-radius: 5px;
+  font-size: 16px;
+}
+
+.unassigned-photos-panel {
+  background-color: #252526;
+  padding: 20px;
+  border-radius: 5px;
+  flex-grow: 1;
+  display: flex; 
+  flex-direction: column; 
+  min-height: 0; 
+}
+
+.unassigned-content {
+  display: flex;
+  gap: 15px;
+  margin-top: 10px;
+  flex-grow: 1;
+  min-height: 0; /* Important for flexbox scrolling */
+}
+
+.photo-queue {
+  flex-basis: 50%; /* Take up half the space */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  overflow-y: auto;
+  align-content: flex-start; /* Aligns items to the top */
+}
+
+.photo-preview-area {
+  flex-basis: 50%; /* Take up the other half */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #1e1e1e;
+  border-radius: 5px;
+}
+
+.photo-preview-area img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 5px;
+}
+
+.preview-placeholder {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  color: #555;
+  text-align: center;
+  font-style: italic;
+}
+
+.photo-thumbnail {
+  width: 100px;
+  height: 100px;
+  background-color: #3c3c3c;
+  border-radius: 5px;
+}
+
+.active-customer-panel p {
+  margin: 10px 0;
+}
+
+.assign-btn {
+  width: 100%;
+  margin-top: 10px;
+}
+
+/* Add these styles to the end of index.css */
+
+.grid-creator-container {
+  display: flex;
+  gap: 20px;
+  height: 100%;
+}
+
+.grid-toolbar {
+  width: 280px;
+  flex-shrink: 0;
+  background-color: #252526;
+  padding: 20px;
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+}
+
+.template-buttons {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  margin-bottom: auto;
+  /* Pushes the export button to the bottom */
+}
+
+.btn-secondary {
+  background-color: #3c3c3c;
+  color: #d4d4d4;
+  border: 1px solid #555;
+  padding: 8px 16px;
+  font-size: 14px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background-color: #555;
+}
+
+.grid-canvas {
+  flex-grow: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #1a1a1a;
+  border-radius: 5px;
+  padding: 20px;
+}
+
+.grid-preview {
+  display: grid;
+  gap: 10px;
+  background-color: #3c3c3c;
+  padding: 10px;
+  width: 100%;
+  max-width: 450px; 
+}
+
+.grid-2x2 {
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+}
+
+.grid-cell {
+  position: relative;
+  background-color: #252526;
+  border-radius: 5px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 48px;
+  color: #555;
+}
+
+.grid-cell.selected-for-swap {
+  outline: 4px solid #0e639c;
+  outline-offset: -4px;
+}
+.grid-cell img {
+    pointer-events: none; 
+}
+
+.project-item {
+  background-color: #3c3c3c;
+  padding: 15px;
+  border-radius: 5px;
+  margin-bottom: 10px;
+  border-left: 5px solid #0e639c;
+}
+
+.project-item h3 {
+  margin-bottom: 5px;
+}
+
+/* Add these styles to the end of index.css */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: #252526;
+  padding: 30px;
+  border-radius: 8px;
+  width: 500px;
+  color: #d4d4d4;
+}
+
+.modal-content h2 {
+  margin-bottom: 10px;
+}
+
+.modal-content p {
+  margin-bottom: 20px;
+  color: #a0a0a0;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 20px;
+  background-color: #3c3c3c;
+  border: 1px solid #555;
+  color: #d4d4d4;
+  border-radius: 5px;
+  font-size: 16px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.modal-actions-right {
+    display: flex;
+    gap: 10px;
+}
+
+.modal-content label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #a0a0a0;
+}
+
+.project-item:hover {
+  border-left-color: #1177bb;
+  cursor: pointer;
+}
+
+.back-btn {
+  margin-bottom: 20px;
+}
+
+.photo-thumbnail.selected {
+  border: 3px solid #0e639c;
+}
+
+.photo-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 3px;
+}
+
+.customer-list-panel {
+  margin-top: 20px;
+  background-color: #252526;
+  padding: 20px;
+  border-radius: 5px;
+}
+
+.customer-list-item {
+  padding: 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-bottom: 5px;
+  border: 1px solid #3c3c3c;
+}
+
+.customer-list-item:hover {
+  background-color: #3c3c3c;
+}
+
+.customer-list-item span {
+  font-size: 0.8em;
+  color: #a0a0a0;
+}
+
+.muted-text {
+  color: #a0a0a0;
+}
+
+.customer-list-item {
+  /* ... existing styles ... */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.photo-count {
+  background-color: #0e639c;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 3px 8px;
+  border-radius: 10px;
+}
+
+.modal-content.large {
+  width: 80vw;
+  max-width: 1200px;
+}
+
+.photo-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 15px;
+  max-height: 70vh;
+  overflow-y: auto;
+  margin: 20px 0;
+}
+
+.preview-item {
+  position: relative;
+}
+
+.preview-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 5px;
+}
+
+.btn-revert {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background-color: #c0392b;
+  /* ... other button styles */
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.btn-small {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.sidebar-preview-image {
+  width: 100%;
+  margin-top: 10px;
+  aspect-ratio: 4 / 6; /* Common photo aspect ratio */
+  background-color: #1e1e1e;
+  border-radius: 5px;
+}
+
+.sidebar-preview-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* Use 'contain' to see the whole image */
+  border-radius: 5px;
+}
+
+.check-in-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.find-voucher-form {
+  display: flex;
+  gap: 10px;
+}
+
+.find-voucher-form .voucher-input {
+  margin-bottom: 0;
+  flex-grow: 1; /* Allows input to take up available space */
+}
+
+.registration-form p {
+  margin-bottom: 15px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 10px;
+  background-color: #3c3c3c;
+  border: 1px solid #555;
+  color: #d4d4d4;
+  border-radius: 5px;
+}
+
+.customer-list-scroll {
+  max-height: 300px; /* Adjust as needed */
+  overflow-y: auto;
+}
+
+.edited-photo-list {
+  flex-grow: 1;
+  overflow-y: auto;
+  margin: 15px 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  align-content: flex-start;
+}
+
+.edited-thumbnail {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  cursor: pointer;
+}
+
+.edited-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 5px;
+}
+
+.grid-cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* New Grid Template Styles */
+.grid-1x4 {
+  grid-template-columns: 1fr;
+  grid-template-rows: repeat(4, 1fr);
+}
+
+.grid-1x2 {
+  grid-template-columns: 1fr;
+  grid-template-rows: repeat(2, 1fr);
+}
+
+.cropper-container {
+    margin: 20px 0;
+    background: #1e1e1e;
+}
+
+.rotation-control {
+  margin: 15px 0;
+  text-align: center;
+}
+
+.rotation-control label {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.rotation-slider {
+  width: 80%;
+}
+
+.btn-delete-slot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  font-size: 18px;
+  line-height: 24px;
+  text-align: center;
+  cursor: pointer;
+  opacity: 0; /* Hide by default */
+  transition: opacity 0.2s;
+}
+
+.grid-cell:hover .btn-delete-slot {
+  opacity: 1; /* Show on hover */
+}
