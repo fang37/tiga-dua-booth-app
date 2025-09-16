@@ -189,7 +189,8 @@ function GridCreator({ customer, projectId, onBack }) {
     const result = await window.api.exportGridImage({
       projectPath: project.folder_path,
       imagePaths: gridSlots,
-      template: selectedTemplate
+      template: selectedTemplate,
+      customerId: customer.id 
     });
 
     if (result.success) {

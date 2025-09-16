@@ -35,6 +35,7 @@ function initializeDatabase() {
       phone_number TEXT,
       folder_path TEXT NOT NULL UNIQUE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      export_status TEXT DEFAULT 'pending',
       FOREIGN KEY (voucher_id) REFERENCES vouchers (id) ON DELETE CASCADE
     );
 
@@ -67,6 +68,7 @@ function initializeDatabase() {
 
   // Execute the SQL to create tables
   db.exec(setupSql);
+  // db.prepare("ALTER TABLE customers ADD COLUMN export_status TEXT DEFAULT 'pending'").run();
   console.log('Database has been initialized.');
 }
 
@@ -348,16 +350,15 @@ function runHealthCheckForProject(projectId) {
 
 function getCustomersByProjectId(projectId) {
   const stmt = db.prepare(`
-   SELECT 
+  SELECT 
       c.id, 
       c.name, 
-      v.code as voucherCode,
-      COUNT(p.id) as photoCount 
+      v.code as voucherCode, 
+      c.export_status,
+      (SELECT COUNT(p.id) FROM photos p WHERE c.id = p.customer_id) as photoCount 
     FROM customers c
     JOIN vouchers v ON c.voucher_id = v.id
-    LEFT JOIN photos p ON c.id = p.customer_id
     WHERE v.project_id = ?
-    GROUP BY c.id
     ORDER BY c.created_at DESC
   `);
   return stmt.all(projectId);
@@ -457,7 +458,7 @@ function getTemplatesForProject(projectId) {
   return stmt.all(projectId);
 }
 
-async function exportGridImage({ projectPath, imagePaths, template }) {
+async function exportGridImage({ projectPath, imagePaths, template, customerId }) {
   try {
     const finalFolderPath = path.join(projectPath, 'final');
     if (!fs.existsSync(finalFolderPath)) {
@@ -466,13 +467,13 @@ async function exportGridImage({ projectPath, imagePaths, template }) {
 
     const outputName = `grid-${Date.now()}.jpg`;
     const outputPath = path.join(finalFolderPath, outputName);
-    
+
     const DPI = 300;
     const MM_PER_INCH = 25.4;
 
     const layout = JSON.parse(template.layout_config);
     const background_color = template.background_color;
-    
+
     // Convert all mm dimensions to pixels
     const canvasWidthPx = Math.round((layout.print_width_mm / MM_PER_INCH) * DPI);
     const canvasHeightPx = Math.round((layout.print_height_mm / MM_PER_INCH) * DPI);
@@ -481,7 +482,7 @@ async function exportGridImage({ projectPath, imagePaths, template }) {
     const paddingBottomPx = Math.round((layout.padding_mm.bottom / MM_PER_INCH) * DPI);
     const paddingLeftPx = Math.round((layout.padding_mm.left / MM_PER_INCH) * DPI);
     const paddingRightPx = Math.round((layout.padding_mm.right / MM_PER_INCH) * DPI);
-    
+
     const gridAreaWidth = canvasWidthPx - (paddingLeftPx + paddingRightPx);
     const gridAreaHeight = canvasHeightPx - (paddingTopPx + paddingBottomPx);
     const cellWidth = (gridAreaWidth - (gapPx * (layout.cols - 1))) / layout.cols;
@@ -519,7 +520,7 @@ async function exportGridImage({ projectPath, imagePaths, template }) {
     }
 
     // Step 3: Composite the photo grid onto the base canvas and save
-     await sharp({
+    await sharp({
       create: {
         width: canvasWidthPx,
         height: canvasHeightPx,
@@ -527,12 +528,14 @@ async function exportGridImage({ projectPath, imagePaths, template }) {
         background: background_color || '#FFFFFF',
       }
     })
-    .composite(compositeOps) // Apply photos and watermark in one step
-    .jpeg({ quality: 95 })
-    .withMetadata({ density: DPI })
-    .toFile(outputPath);
+      .composite(compositeOps) // Apply photos and watermark in one step
+      .jpeg({ quality: 95 })
+      .withMetadata({ density: DPI })
+      .toFile(outputPath);
 
-    console.log(`Grid exported successfully to: ${outputPath}`);
+    db.prepare("UPDATE customers SET export_status = 'exported' WHERE id = ?").run(customerId);
+
+    console.log(`Grid exported and status updated for customer ${customerId}`);
     return { success: true, path: outputPath };
   } catch (error) {
     console.error('Failed to export grid:', error);

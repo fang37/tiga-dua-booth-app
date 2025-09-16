@@ -291,7 +291,7 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
             <button className="btn-secondary btn-small" onClick={fetchCustomers}>Refresh</button>
           </div>
 
-           <input
+          <input
             type="text"
             placeholder="Search by name or code..."
             className="search-input"
@@ -303,8 +303,8 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
             {filteredCustomers.length > 0 ? (
               // 4. Map over the NEW filteredCustomers array
               filteredCustomers.map(cust => (
-                <div 
-                  key={cust.id} 
+                <div
+                  key={cust.id}
                   className="customer-list-item"
                   onClick={() => setPreviewCustomer(cust)}
                 >
@@ -312,7 +312,10 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
                     <p><strong>{cust.name}</strong></p>
                     <span>{cust.voucherCode}</span>
                   </div>
-                  <div className="photo-count">{cust.photoCount}</div>
+                  <div className="customer-badges">
+                    {cust.export_status === 'exported' && <span className="badge exported">✔ Exported</span>}
+                    <div className="photo-count">{cust.photoCount}</div>
+                  </div>
                 </div>
               ))
             ) : (
