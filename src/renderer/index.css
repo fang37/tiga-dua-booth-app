@@ -132,9 +132,9 @@ html,
   padding: 20px;
   border-radius: 5px;
   flex-grow: 1;
-  display: flex; 
-  flex-direction: column; 
-  min-height: 0; 
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .unassigned-content {
@@ -142,20 +142,24 @@ html,
   gap: 15px;
   margin-top: 10px;
   flex-grow: 1;
-  min-height: 0; /* Important for flexbox scrolling */
+  min-height: 0;
+  /* Important for flexbox scrolling */
 }
 
 .photo-queue {
-  flex-basis: 50%; /* Take up half the space */
+  flex-basis: 50%;
+  /* Take up half the space */
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   overflow-y: auto;
-  align-content: flex-start; /* Aligns items to the top */
+  align-content: flex-start;
+  /* Aligns items to the top */
 }
 
 .photo-preview-area {
-  flex-basis: 50%; /* Take up the other half */
+  flex-basis: 50%;
+  /* Take up the other half */
   display: flex;
   justify-content: center;
   align-items: center;
@@ -222,6 +226,12 @@ html,
   /* Pushes the export button to the bottom */
 }
 
+.template-buttons .btn-secondary.active {
+  border-color: #0e639c;
+  background-color: #0e639c;
+  color: white;
+}
+
 .btn-secondary {
   background-color: #3c3c3c;
   color: #d4d4d4;
@@ -244,6 +254,7 @@ html,
   background-color: #1a1a1a;
   border-radius: 5px;
   padding: 20px;
+  overflow: auto; 
 }
 
 .grid-preview {
@@ -251,8 +262,10 @@ html,
   gap: 10px;
   background-color: #3c3c3c;
   padding: 10px;
+  height: 100%;
   width: 100%;
-  max-width: 450px; 
+  max-width: 450px;
+  max-height: 100%;
 }
 
 .grid-2x2 {
@@ -263,11 +276,11 @@ html,
 .grid-cell {
   position: relative;
   background-color: #252526;
-  border-radius: 5px;
+  border-radius: 3px;
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 48px;
+  font-size: 24px;
   color: #555;
 }
 
@@ -275,8 +288,12 @@ html,
   outline: 4px solid #0e639c;
   outline-offset: -4px;
 }
+
 .grid-cell img {
-    pointer-events: none; 
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
 }
 
 .project-item {
@@ -285,6 +302,19 @@ html,
   border-radius: 5px;
   margin-bottom: 10px;
   border-left: 5px solid #0e639c;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.project-item-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.project-item-main {
+  flex-grow: 1;
 }
 
 .project-item h3 {
@@ -342,8 +372,8 @@ html,
 }
 
 .modal-actions-right {
-    display: flex;
-    gap: 10px;
+  display: flex;
+  gap: 10px;
 }
 
 .modal-content label {
@@ -465,7 +495,8 @@ html,
 .sidebar-preview-image {
   width: 100%;
   margin-top: 10px;
-  aspect-ratio: 4 / 6; /* Common photo aspect ratio */
+  aspect-ratio: 4 / 6;
+  /* Common photo aspect ratio */
   background-color: #1e1e1e;
   border-radius: 5px;
 }
@@ -473,7 +504,8 @@ html,
 .sidebar-preview-image img {
   width: 100%;
   height: 100%;
-  object-fit: contain; /* Use 'contain' to see the whole image */
+  object-fit: contain;
+  /* Use 'contain' to see the whole image */
   border-radius: 5px;
 }
 
@@ -491,7 +523,8 @@ html,
 
 .find-voucher-form .voucher-input {
   margin-bottom: 0;
-  flex-grow: 1; /* Allows input to take up available space */
+  flex-grow: 1;
+  /* Allows input to take up available space */
 }
 
 .registration-form p {
@@ -509,7 +542,8 @@ html,
 }
 
 .customer-list-scroll {
-  max-height: 300px; /* Adjust as needed */
+  max-height: 300px;
+  /* Adjust as needed */
   overflow-y: auto;
 }
 
@@ -554,8 +588,8 @@ html,
 }
 
 .cropper-container {
-    margin: 20px 0;
-    background: #1e1e1e;
+  margin: 20px 0;
+  background: #1e1e1e;
 }
 
 .rotation-control {
@@ -586,10 +620,399 @@ html,
   line-height: 24px;
   text-align: center;
   cursor: pointer;
-  opacity: 0; /* Hide by default */
+  opacity: 0;
+  /* Hide by default */
   transition: opacity 0.2s;
 }
 
 .grid-cell:hover .btn-delete-slot {
-  opacity: 1; /* Show on hover */
+  opacity: 1;
+  /* Show on hover */
+}
+
+.template-manager {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.manager-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  flex-shrink: 0;
+}
+
+.manager-grid-layout {
+  display: grid;
+  grid-template-columns: 320px 320px 1fr;
+  /* Three columns */
+  gap: 20px;
+  flex-grow: 1;
+  min-height: 0;
+}
+
+.template-form-col,
+.template-preview-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 0;
+}
+
+.template-form-col form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* Make fieldsets and form-rows look consistent */
+.template-form-col fieldset,
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.template-form-col fieldset {
+  border: 1px solid #3c3c3c;
+  padding: 10px 15px 15px 15px;
+  border-radius: 5px;
+}
+
+.template-form-col legend {
+  padding: 0 10px;
+  color: #d4d4d4;
+  font-weight: bold;
+}
+
+.template-form-col label {
+  font-weight: bold;
+  color: #a0a0a0;
+}
+
+.form-grid label {
+  font-size: 0.9em;
+  font-weight: normal;
+  color: #888;
+  display: block;
+  margin-bottom: 3px;
+}
+
+/* Input Styles */
+.template-form-col input[type="text"],
+.template-form-col input[type="number"] {
+  width: 100%;
+  padding: 8px;
+  background-color: #3c3c3c;
+  border: 1px solid #555;
+  color: #d4d4d4;
+  border-radius: 5px;
+}
+
+.file-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.template-form-col button[type="submit"] {
+  margin-top: auto;
+  /* Push the save button to the bottom */
+}
+
+.template-form-col select {
+  width: 100%;
+  padding: 8px;
+  background-color: #3c3c3c;
+  border: 1px solid #555;
+  color: #d4d4d4;
+  border-radius: 5px;
+}
+
+/* Preview & List Column Styles */
+.template-preview-container,
+.template-list-container {
+  background-color: #252526;
+  padding: 20px;
+  border-radius: 5px;
+}
+
+.template-list-container {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.template-list {
+  margin-top: 15px;
+  overflow-y: auto;
+  flex-grow: 1;
+}
+
+.template-item {
+  background-color: #3c3c3c;
+  padding: 15px;
+  border-radius: 5px;
+  margin-bottom: 10px;
+  border-left: 5px solid #0e639c;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.template-item:hover {
+  background-color: #555;
+}
+
+.preview-box {
+  position: relative;
+  border: 1px dashed #555;
+  overflow: hidden;
+}
+
+.preview-cell {
+  background-color: #555;
+  border-radius: 3px;
+}
+
+.preview-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.preview-container-wrapper {
+  position: relative;
+  /* Make the wrapper fill the available space */
+  width: 100%;
+  max-width: 450px;
+  max-height: 100%;
+  /* Apply the aspect ratio to the wrapper */
+  aspect-ratio: var(--grid-aspect-ratio);
+}
+
+.watermark-preview {
+  /* Prevent user from accidentally clicking/dragging the preview image */
+  pointer-events: none;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.watermark-center {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.watermark-north {
+  top: 5%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.watermark-south {
+  bottom: 5%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.watermark-east {
+  top: 50%;
+  right: 5%;
+  transform: translateY(-50%);
+}
+
+.watermark-west {
+  top: 50%;
+  left: 5%;
+  transform: translateY(-50%);
+}
+
+.watermark-southeast {
+  bottom: 5%;
+  right: 5%;
+}
+
+.watermark-southwest {
+  bottom: 5%;
+  left: 5%;
+}
+
+.watermark-northeast {
+  top: 5%;
+  right: 5%;
+}
+
+.watermark-northwest {
+  top: 5%;
+  left: 5%;
+}
+
+/* Ruler Styles */
+.ruler {
+  position: absolute;
+  color: #888;
+  font-size: 10px;
+}
+
+.ruler.horizontal {
+  top: -20px;
+  left: 0;
+  height: 20px;
+  width: 100%;
+}
+
+.ruler.vertical {
+  top: 0;
+  left: -20px;
+  width: 20px;
+  height: 100%;
+}
+
+.ruler-tick {
+  position: absolute;
+  background-color: #888;
+}
+
+.ruler.horizontal .ruler-tick {
+  width: 1px;
+  height: 5px;
+  top: 15px;
+}
+
+.ruler.horizontal .ruler-tick.major {
+  height: 10px;
+  top: 10px;
+}
+
+.ruler.vertical .ruler-tick {
+  height: 1px;
+  width: 5px;
+  left: 15px;
+}
+
+.ruler.vertical .ruler-tick.major {
+  width: 10px;
+  left: 10px;
+}
+
+.ruler-label {
+  position: absolute;
+}
+
+.ruler.horizontal .ruler-label {
+  top: -15px;
+  left: 2px;
+}
+
+.ruler.vertical .ruler-label {
+  top: -5px;
+  left: -15px;
+  transform: rotate(-90deg);
+}
+
+.template-form-container {
+  width: 350px;
+  /* Reduced width slightly */
+  min-width: 350px;
+  /* Prevent it from getting too small */
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  /* Ensure scrolling is vertical */
+}
+
+.template-form-container form {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  /* Reduced gap for a tighter look */
+  margin-top: 15px;
+}
+
+/* === Main Labels === */
+.template-form-container form>label {
+  font-weight: bold;
+  color: #a0a0a0;
+  margin-top: 10px;
+  /* Add space above main labels */
+}
+
+/* === Fieldset Groups === */
+.template-form-container form fieldset {
+  border: 1px solid #3c3c3c;
+  padding: 10px 15px 15px 15px;
+  border-radius: 5px;
+  margin-top: 10px;
+}
+
+.template-form-container form legend {
+  padding: 0 10px;
+  color: #d4d4d4;
+  /* Make legend text brighter */
+  font-weight: bold;
+}
+
+/* === Input Fields & Grids === */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-top: 5px;
+}
+
+.form-grid label,
+.form-grid-4 label {
+  font-size: 0.9em;
+  font-weight: normal !important;
+  color: #888 !important;
+  display: block;
+  margin-bottom: 3px;
+}
+
+.template-form-container form input[type="text"],
+.template-form-container form input[type="number"] {
+  width: 100%;
+  /* Ensure inputs fill their container */
+  padding: 8px;
+  background-color: #3c3c3c;
+  border: 1px solid #555;
+  color: #d4d4d4;
+  border-radius: 5px;
+}
+
+/* === Special Row for Color/Watermark === */
+.form-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+/* === Final Submit Button === */
+.template-form-container form button[type="submit"] {
+  margin-top: 20px;
+}
+
+.btn-remove-file {
+  background-color: #555;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 16px;
+  line-height: 20px;
+  text-align: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  /* Prevent the button from shrinking */
+}
+
+.btn-remove-file:hover {
+  background-color: #c0392b;
+  /* Red on hover */
 }

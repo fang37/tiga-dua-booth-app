@@ -2,6 +2,7 @@ import { app } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
+import sharp from 'sharp';
 
 // Define the path for our database file.
 const dbPath = path.resolve(__dirname, '../../../photobooth.db');
@@ -43,6 +44,24 @@ function initializeDatabase() {
       file_path TEXT NOT NULL UNIQUE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS templates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      layout_config TEXT NOT NULL,
+      background_color TEXT DEFAULT '#FFFFFF',
+      watermark_path TEXT,
+      watermark_opacity REAL DEFAULT 0.5,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS project_templates (
+      project_id INTEGER NOT NULL,
+      template_id INTEGER NOT NULL,
+      FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
+      FOREIGN KEY (template_id) REFERENCES templates (id) ON DELETE CASCADE,
+      PRIMARY KEY (project_id, template_id)
     );
   `;
 
@@ -223,7 +242,7 @@ function assignPhotosToCustomer({ customerId, photoPaths }) {
         }
 
         currentPhotoCount++;
-         const sequence = String(currentPhotoCount).padStart(2, '0');
+        const sequence = String(currentPhotoCount).padStart(2, '0');
         const fileExtension = path.extname(sourcePath);
         const baseFileName = `${filePrefix}-${info.voucher_code}-${sequence}`;
 
@@ -269,7 +288,7 @@ function revertPhotosToRaw({ photoIds, projectFolderPath }) {
         if (photo) {
           const oldPath = photo.file_path;
           const newPath = path.join(rawFolderPath, path.basename(oldPath));
-         
+
           if (fs.existsSync(oldPath)) {
             fs.renameSync(oldPath, newPath);
           }
@@ -390,6 +409,137 @@ function getEditedPhotosByCustomerId(customerId) {
   }
 }
 
+function getAllTemplates() {
+  return db.prepare('SELECT * FROM templates ORDER BY name').all();
+}
+
+function createTemplate({ name, layout_config, background_color, watermark_path, watermark_opacity }) {
+  const stmt = db.prepare(`
+    INSERT INTO templates (name, layout_config, background_color, watermark_path, watermark_opacity)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  const info = stmt.run(name, JSON.stringify(layout_config), background_color, watermark_path, watermark_opacity);
+  return { success: true, id: info.lastInsertRowid };
+}
+
+function setTemplatesForProject({ projectId, templateIds }) {
+  const deleteStmt = db.prepare('DELETE FROM project_templates WHERE project_id = ?');
+  const insertStmt = db.prepare('INSERT INTO project_templates (project_id, template_id) VALUES (?, ?)');
+
+  const setTransaction = db.transaction(() => {
+    deleteStmt.run(projectId); // Clear existing links
+    for (const templateId of templateIds) {
+      insertStmt.run(projectId, templateId); // Add new links
+    }
+  });
+
+  try {
+    setTransaction();
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to set project templates:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+function getTemplatesForProject(projectId) {
+  // This query now gets all template data using "t.*"
+  const stmt = db.prepare(`
+    SELECT
+      t.*,
+      CASE
+        WHEN pt.project_id IS NOT NULL THEN 1
+        ELSE 0
+      END as checked
+    FROM templates t
+    LEFT JOIN project_templates pt ON t.id = pt.template_id AND pt.project_id = ?
+  `);
+  return stmt.all(projectId);
+}
+
+async function exportGridImage({ projectPath, imagePaths, template }) {
+  try {
+    const finalFolderPath = path.join(projectPath, 'final');
+    if (!fs.existsSync(finalFolderPath)) {
+      fs.mkdirSync(finalFolderPath, { recursive: true });
+    }
+
+    const outputName = `grid-${Date.now()}.jpg`;
+    const outputPath = path.join(finalFolderPath, outputName);
+    
+    const DPI = 300;
+    const MM_PER_INCH = 25.4;
+
+    const layout = JSON.parse(template.layout_config);
+    const background_color = template.background_color;
+    
+    // Convert all mm dimensions to pixels
+    const canvasWidthPx = Math.round((layout.print_width_mm / MM_PER_INCH) * DPI);
+    const canvasHeightPx = Math.round((layout.print_height_mm / MM_PER_INCH) * DPI);
+    const gapPx = Math.round((layout.gap_mm / MM_PER_INCH) * DPI);
+    const paddingTopPx = Math.round((layout.padding_mm.top / MM_PER_INCH) * DPI);
+    const paddingBottomPx = Math.round((layout.padding_mm.bottom / MM_PER_INCH) * DPI);
+    const paddingLeftPx = Math.round((layout.padding_mm.left / MM_PER_INCH) * DPI);
+    const paddingRightPx = Math.round((layout.padding_mm.right / MM_PER_INCH) * DPI);
+    
+    const gridAreaWidth = canvasWidthPx - (paddingLeftPx + paddingRightPx);
+    const gridAreaHeight = canvasHeightPx - (paddingTopPx + paddingBottomPx);
+    const cellWidth = (gridAreaWidth - (gapPx * (layout.cols - 1))) / layout.cols;
+    const cellHeight = (gridAreaHeight - (gapPx * (layout.rows - 1))) / layout.rows;
+
+    // Step 1: Prepare the photo grid composite operations
+    const resizedImageBuffers = await Promise.all(
+      imagePaths.map(imgPath => {
+        if (!imgPath) return null;
+        return sharp(imgPath)
+          .resize(Math.round(cellWidth), Math.round(cellHeight), { fit: 'cover' })
+          .toBuffer();
+      })
+    );
+
+    const compositeOps = resizedImageBuffers.map((buffer, index) => {
+      if (!buffer) return null;
+      const col = index % layout.cols;
+      const row = Math.floor(index / layout.cols);
+      const left = paddingLeftPx + col * (cellWidth + gapPx);
+      const top = paddingTopPx + row * (cellHeight + gapPx);
+      return { input: buffer, top: Math.round(top), left: Math.round(left) };
+    }).filter(Boolean);
+
+    // Step 2: Prepare the watermark composite operation (if it exists)
+    const watermarkConfig = layout.watermark;
+    if (watermarkConfig && watermarkConfig.path && fs.existsSync(watermarkConfig.path)) {
+      const watermarkWidth = Math.round(canvasWidthPx * (watermarkConfig.size / 100));
+      const watermarkBuffer = await sharp(watermarkConfig.path).resize({ width: watermarkWidth }).toBuffer();
+      const watermarkMeta = await sharp(watermarkBuffer).metadata();
+      const left = Math.round((canvasWidthPx / 100) * watermarkConfig.position.x - (watermarkMeta.width / 2));
+      const top = Math.round((canvasHeightPx / 100) * watermarkConfig.position.y - (watermarkMeta.height / 2));
+      // Add the watermark to our list of operations
+      compositeOps.push({ input: watermarkBuffer, top, left });
+    }
+
+    // Step 3: Composite the photo grid onto the base canvas and save
+     await sharp({
+      create: {
+        width: canvasWidthPx,
+        height: canvasHeightPx,
+        channels: 4,
+        background: background_color || '#FFFFFF',
+      }
+    })
+    .composite(compositeOps) // Apply photos and watermark in one step
+    .jpeg({ quality: 95 })
+    .withMetadata({ density: DPI })
+    .toFile(outputPath);
+
+    console.log(`Grid exported successfully to: ${outputPath}`);
+    return { success: true, path: outputPath };
+  } catch (error) {
+    console.error('Failed to export grid:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 // Export the database instance and the setup function using ES Module syntax
 export {
   db,
@@ -407,4 +557,9 @@ export {
   runHealthCheckForProject,
   saveCroppedImage,
   getEditedPhotosByCustomerId,
+  getAllTemplates,
+  createTemplate,
+  getTemplatesForProject,
+  setTemplatesForProject,
+  exportGridImage
 };

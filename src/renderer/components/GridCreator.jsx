@@ -1,34 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import CropModal from './CropModal';
 
-const TEMPLATES = {
-  '2x2': { 
-    count: 4, 
-    className: 'grid-2x2', 
-    cropAspectRatio: 1 / 1,      // Cells are square
-    gridAspectRatio: '1 / 1',      // The whole grid is a square
-  },
-  '1x4': { 
-    count: 4, 
-    className: 'grid-1x4', 
-    cropAspectRatio: 4 / 1.5,   // Each cell is a thin portrait rectangle
-    gridAspectRatio: '4 / 6',      // The whole grid is a 4x6 print
-  },
-  '1x2': { 
-    count: 2, 
-    className: 'grid-1x2', 
-    cropAspectRatio: 4 / 3,      // Each cell is a 4x3 portrait
-    gridAspectRatio: '4 / 6',      // The whole grid is a 4x6 print
-  },
-};
+// const TEMPLATES = {
+//   '2x2': { 
+//     count: 4, 
+//     className: 'grid-2x2', 
+//     cropAspectRatio: 1 / 1,      // Cells are square
+//     gridAspectRatio: '1 / 1',      // The whole grid is a square
+//   },
+//   '1x4': { 
+//     count: 4, 
+//     className: 'grid-1x4', 
+//     cropAspectRatio: 4 / 1.5,   // Each cell is a thin portrait rectangle
+//     gridAspectRatio: '4 / 6',      // The whole grid is a 4x6 print
+//   },
+//   '1x2': { 
+//     count: 2, 
+//     className: 'grid-1x2', 
+//     cropAspectRatio: 4 / 3,      // Each cell is a 4x3 portrait
+//     gridAspectRatio: '4 / 6',      // The whole grid is a 4x6 print
+//   },
+// };
 
 function GridCreator({ customer, projectId, onBack }) {
   const [editedPhotos, setEditedPhotos] = useState([]);
   const [project, setProject] = useState(null);
-  const [templateKey, setTemplateKey] = useState('2x2');
-  const [gridSlots, setGridSlots] = useState(Array(TEMPLATES[templateKey].count).fill(null));
-  const [cropImage, setCropImage] = useState(null);
 
+  // State to hold the templates available for this specific project
+  const [availableTemplates, setAvailableTemplates] = useState([]);
+  // State to hold the currently selected template object
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+
+  // const [templateKey, setTemplateKey] = useState('2x2');
+  const [gridSlots, setGridSlots] = useState([]);
+  const [cropImage, setCropImage] = useState(null);
   const [firstSelectedIndex, setFirstSelectedIndex] = useState(null);
 
   useEffect(() => {
@@ -36,20 +41,50 @@ function GridCreator({ customer, projectId, onBack }) {
       if (customer) {
         const projectDetails = await window.api.getProjectById(projectId);
         setProject(projectDetails);
+
         const photos = await window.api.getEditedPhotos(customer.id);
         setEditedPhotos(photos);
       }
+
+      // Fetch only the templates enabled for this project
+      const templatesForProject = await window.api.getTemplatesForProject(projectId);
+      const enabledTemplates = templatesForProject//.filter(tpl => tpl.checked === 1);
+      setAvailableTemplates(enabledTemplates);
+
+      // If there are available templates, select the first one by default
+      if (enabledTemplates.length > 0) {
+        handleSelectTemplate(enabledTemplates[0]);
+      }
     };
-    loadData();
+
+    if (customer) {
+      loadData();
+    }
 
     window.api.onNewEditedPhoto((filePath) => {
       setEditedPhotos(prev => [...prev, filePath]);
     });
   }, [projectId, customer]);
 
-  const handleSelectTemplate = (key) => {
-    setTemplateKey(key);
-    setGridSlots(Array(TEMPLATES[key].count).fill(null)); // Reset grid
+  const handleSelectTemplate = (template) => {
+    setSelectedTemplate(template);
+    const config = JSON.parse(template.layout_config);
+    setGridSlots(Array(config.rows * config.cols).fill(null));
+    setFirstSelectedIndex(null);
+  };
+
+  const getLayoutConfig = () => {
+    if (!selectedTemplate || !selectedTemplate.layout_config) {
+      return null;
+    }
+    return JSON.parse(selectedTemplate.layout_config);
+  };
+
+  const getBackgroundColorConfig = () => {
+    if (!selectedTemplate || !selectedTemplate.background_color) {
+      return null;
+    }
+    return selectedTemplate.background_color;
   };
 
   const handleOpenCropper = (photoPath, gridIndex = null) => {
@@ -79,9 +114,9 @@ function GridCreator({ customer, projectId, onBack }) {
     setCropImage(null); // Close modal
   };
 
-   const handleDeleteFromSlot = (indexToDelete) => {
+  const handleDeleteFromSlot = (indexToDelete) => {
     const newSlots = [...gridSlots];
-    newSlots[indexToDelete] = null; 
+    newSlots[indexToDelete] = null;
     setGridSlots(newSlots);
   };
 
@@ -106,6 +141,64 @@ function GridCreator({ customer, projectId, onBack }) {
     }
   };
 
+  const layoutConfig = getLayoutConfig();
+  const backgroundColor = getBackgroundColorConfig();
+  let previewStyle = {};
+  let watermarkPreviewStyle = {};
+  let scale = 1;
+
+  if (layoutConfig) {
+    const PREVIEW_MAX_SIZE = 450;
+    scale = Math.min(PREVIEW_MAX_SIZE / layoutConfig.print_width_mm, PREVIEW_MAX_SIZE / layoutConfig.print_height_mm);
+
+    previewStyle = {
+      width: `${layoutConfig.print_width_mm * scale}px`,
+      height: `${layoutConfig.print_height_mm * scale}px`,
+      backgroundColor: backgroundColor,
+      padding: `${layoutConfig.padding_mm.top * scale}px ${layoutConfig.padding_mm.right * scale}px ${layoutConfig.padding_mm.bottom * scale}px ${layoutConfig.padding_mm.left * scale}px`,
+      gap: `${layoutConfig.gap_mm * scale}px`,
+      display: 'grid',
+      gridTemplateColumns: `repeat(${layoutConfig.cols}, 1fr)`,
+      gridTemplateRows: `repeat(${layoutConfig.rows}, 1fr)`,
+    };
+
+    if (layoutConfig.watermark && layoutConfig.watermark.path) {
+      watermarkPreviewStyle = {
+        position: 'absolute',
+        opacity: layoutConfig.watermark.opacity,
+        width: `${layoutConfig.watermark.size}%`,
+        left: `${layoutConfig.watermark.position.x}%`,
+        top: `${layoutConfig.watermark.position.y}%`,
+        transform: 'translate(-50%, -50%)',
+      };
+    }
+  }
+
+  const handleExport = async () => {
+    // Check if there's a template and project selected
+    if (!selectedTemplate || !project) {
+      alert('Please select a template first.');
+      return;
+    }
+    // Check if the grid has at least one photo
+    if (gridSlots.every(slot => slot === null)) {
+      alert('Please add at least one photo to the grid.');
+      return;
+    }
+
+    const result = await window.api.exportGridImage({
+      projectPath: project.folder_path,
+      imagePaths: gridSlots,
+      template: selectedTemplate
+    });
+
+    if (result.success) {
+      alert(`Grid successfully exported! Saved to: ${result.path}`);
+    } else {
+      alert(`Error exporting grid: ${result.error}`);
+    }
+  };
+
   return (
 
     <div className="grid-creator-container">
@@ -113,7 +206,7 @@ function GridCreator({ customer, projectId, onBack }) {
         imageSrc={cropImage?.path}
         onClose={() => setCropImage(null)}
         onCrop={handleCropComplete}
-        aspectRatio={TEMPLATES[templateKey].cropAspectRatio}
+        aspectRatio={layoutConfig?.crop_aspect_ratio}
       />
 
       <div className="grid-toolbar">
@@ -132,43 +225,49 @@ function GridCreator({ customer, projectId, onBack }) {
         </div>
         <h3>Grid Templates</h3>
         <div className="template-buttons">
-          {Object.keys(TEMPLATES).map(key => (
-            <button key={key} className="btn-secondary" onClick={() => handleSelectTemplate(key)}>{key}</button>
+          {availableTemplates.map(tpl => (
+            <button
+              key={tpl.id}
+              className={`btn-secondary ${selectedTemplate?.id === tpl.id ? 'active' : ''}`}
+              onClick={() => handleSelectTemplate(tpl)}
+            >
+              {tpl.name}
+            </button>
           ))}
         </div>
-        <button className="btn-primary">Export Final Image</button>
+        <button className="btn-primary" onClick={handleExport}>Export Final Image</button>
       </div>
 
       <div className="grid-canvas">
-        <div className={`grid-preview ${TEMPLATES[templateKey].className}`}
-        style={{ aspectRatio: TEMPLATES[templateKey].gridAspectRatio }}
-        >
-          {gridSlots.map((photoPath, index) => (
-            <div
-              key={index}
-              className={`grid-cell ${firstSelectedIndex === index ? 'selected-for-swap' : ''}`}
-              onClick={() => handleGridCellClick(index)}
-              onDoubleClick={() => photoPath && handleOpenCropper(photoPath, index)}
+        {selectedTemplate && layoutConfig ? (
+          <div className="preview-wrapper">
+            <div 
+              className="preview-box"
+              style={previewStyle}
             >
-               {photoPath ? (
-                <>
-                  <img src={`file://${photoPath}`} alt={`Slot ${index + 1}`} />
-                  <button 
-                    className="btn-delete-slot" 
-                    onClick={(e) => {
-                      e.stopPropagation(); 
-                      handleDeleteFromSlot(index);
-                    }}
-                  >
-                    &times;
-                  </button>
-                </>
-              ) : (
-                <p>+</p>
-              )}
+              {gridSlots.map((photoPath, index) => (
+                <div
+                  key={index}
+                  className={`grid-cell ${firstSelectedIndex === index ? 'selected-for-swap' : ''}`}
+                  onClick={() => handleGridCellClick(index)}
+                  onDoubleClick={() => photoPath && handleOpenCropper(photoPath, index)}
+                >
+                  {photoPath ? <img src={`file://${photoPath}`} alt={`Slot ${index + 1}`} /> : <p>+</p>}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+            {layoutConfig.watermark?.path && (
+              <img
+                src={`file://${layoutConfig.watermark.path}`}
+                alt="Watermark Preview"
+                className="watermark-preview"
+                style={watermarkPreviewStyle}
+              />
+            )}
+          </div>
+        ) : (
+          <p>Select a template to begin.</p>
+        )}
       </div>
     </div>
 

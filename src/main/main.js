@@ -1,7 +1,7 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import path from 'node:path';
 import fs from 'fs';
-import { initializeDatabase, createProject, getProjects, getProjectById, findVoucherByCode, assignPhotosToCustomer, getCustomersByProjectId, getPhotosByCustomerId, revertPhotosToRaw, runHealthCheckForProject, saveCroppedImage, generateVouchersForProject, redeemVoucher, getEditedPhotosByCustomerId } from './services/database.js';
+import { initializeDatabase, createProject, getProjects, getProjectById, findVoucherByCode, assignPhotosToCustomer, getCustomersByProjectId, getPhotosByCustomerId, revertPhotosToRaw, runHealthCheckForProject, saveCroppedImage, generateVouchersForProject, redeemVoucher, getEditedPhotosByCustomerId, getAllTemplates, createTemplate, setTemplatesForProject, getTemplatesForProject, exportGridImage } from './services/database.js';
 import { generateThumbnail } from './services/thumbnailService.js';
 import started from 'electron-squirrel-startup';
 import chokidar from 'chokidar';
@@ -67,6 +67,10 @@ app.whenReady().then(() => {
     return getCustomersByProjectId(id);
   });
 
+  ipcMain.handle('generate-vouchers-for-project', async (event, data) => {
+    return generateVouchersForProject(data);
+  });
+
   ipcMain.handle('redeem-voucher', async (event, data) => {
     return redeemVoucher(data);
   });
@@ -92,6 +96,26 @@ app.whenReady().then(() => {
   ipcMain.handle('save-cropped-image', async (event, data) => {
     return saveCroppedImage(data);
   });
+
+  ipcMain.handle('export-grid-image', async (event, data) => {
+    return exportGridImage(data);
+  });
+
+  ipcMain.handle('get-all-templates', () => getAllTemplates());
+
+  ipcMain.handle('create-template', (event, data) => createTemplate(data));
+
+  ipcMain.handle('open-file-dialog', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg'] }]
+    });
+    return canceled ? null : filePaths[0];
+  });
+
+  ipcMain.handle('get-templates-for-project', (event, data) => getTemplatesForProject());
+
+  ipcMain.handle('set-templates-for-project', (event, data) => setTemplatesForProject(data));
 
   ipcMain.on('start-watching', (event, projectPath) => {
     const rawFolderPath = path.join(projectPath, 'raw');

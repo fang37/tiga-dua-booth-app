@@ -4,6 +4,7 @@ import './index.css';
 import ProjectDashboard from './components/ProjectDashboard';
 import EventWorkspace from './components/EventWorkspace';
 import GridCreator from './components/GridCreator';
+import TemplateManager from './components/TemplateManager';
 
 function App() {
   const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' or 'workspace'
@@ -32,7 +33,7 @@ function App() {
         <nav>
           <ul>
             <li onClick={navigateToDashboard}>Projects</li>
-            <li>Settings</li>
+            <li onClick={() => setCurrentView('templates')}>Settings</li>
           </ul>
         </nav>
       </div>
@@ -53,6 +54,9 @@ function App() {
             projectId={selectedProjectId}
             onBack={() => setCurrentView('workspace')} 
           />
+        )}
+        {currentView === 'templates' && (
+          <TemplateManager onBack={navigateToDashboard} />
         )}
       </main>
     </div>
