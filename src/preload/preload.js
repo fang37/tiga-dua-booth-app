@@ -28,11 +28,14 @@ contextBridge.exposeInMainWorld('api', {
     onNewPhoto: (callback) => ipcRenderer.on('new-photo-added', (_event, value) => callback(value)),
     onNewEditedPhoto: (callback) => ipcRenderer.on('new-edited-photo-added', (_event, value) => callback(value)),
 
+    // File System & Dialogs
+    openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
+    openFolder: (data) => ipcRenderer.invoke('open-folder', data),
+
     // Template Management
     getAllTemplates: () => ipcRenderer.invoke('get-all-templates'),
     createTemplate: (data) => ipcRenderer.invoke('create-template', data),
-    openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
-    getTemplatesForProject: () => ipcRenderer.invoke('get-templates-for-project'),
+    getTemplatesForProject: (data) => ipcRenderer.invoke('get-templates-for-project',data),
     setTemplatesForProject: (data) => ipcRenderer.invoke('set-templates-for-project', data),
 
 });

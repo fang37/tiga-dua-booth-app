@@ -16,13 +16,15 @@ function ProjectTemplatesModal({ project, onClose, onSave }) {
   if (!project) return null;
 
   const handleToggle = (templateId) => {
-    setTemplates(prev =>
-      prev.map(t =>
-        t.id === templateId ? { ...t, checked: !t.checked } : t
+    setTemplates(prevTemplates =>
+      prevTemplates.map(tpl =>
+        tpl.id === templateId
+          ? { ...tpl, checked: tpl.checked ? 0 : 1 }
+          : tpl
       )
     );
   };
-
+  
   const handleSave = () => {
     const selectedIds = templates.filter(t => t.checked).map(t => t.id);
     onSave(project.id, selectedIds);

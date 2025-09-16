@@ -87,7 +87,6 @@ function createProject({ name, event_date }) {
     // 3. Create the folder structure (e.g., /photobooth_projects/2025-09-13-andy-and-bettys-wedding/raw)
     // The { recursive: true } option creates parent directories if they don't exist.
     fs.mkdirSync(rawFolderPath, { recursive: true });
-    fs.mkdirSync(editedFolderPath, { recursive: true });
 
     // 4. Prepare and run the SQL INSERT statement
     const stmt = db.prepare(
@@ -145,7 +144,9 @@ function redeemVoucher({ voucherCode, name, email, phoneNumber }) { // <-- phone
   }
 
   const customerFolderPath = path.join(voucher.project_folder, voucherCode);
+  const customerEditedPath = path.join(customerFolderPath, 'edited');
   fs.mkdirSync(customerFolderPath, { recursive: true });
+  fs.mkdirSync(customerEditedPath, { recursive: true });
 
   const redeemTransaction = db.transaction(() => {
     const updateVoucherStmt = db.prepare("UPDATE vouchers SET status = 'redeemed' WHERE id = ?");
@@ -444,7 +445,6 @@ function setTemplatesForProject({ projectId, templateIds }) {
 }
 
 function getTemplatesForProject(projectId) {
-  // This query now gets all template data using "t.*"
   const stmt = db.prepare(`
     SELECT
       t.*,
@@ -453,7 +453,7 @@ function getTemplatesForProject(projectId) {
         ELSE 0
       END as checked
     FROM templates t
-    LEFT JOIN project_templates pt ON t.id = pt.template_id AND pt.project_id = ?
+    LEFT JOIN (SELECT * FROM project_templates WHERE project_id = ?) pt ON t.id = pt.template_id
   `);
   return stmt.all(projectId);
 }

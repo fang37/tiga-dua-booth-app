@@ -48,7 +48,7 @@ function GridCreator({ customer, projectId, onBack }) {
 
       // Fetch only the templates enabled for this project
       const templatesForProject = await window.api.getTemplatesForProject(projectId);
-      const enabledTemplates = templatesForProject//.filter(tpl => tpl.checked === 1);
+      const enabledTemplates = templatesForProject.filter(tpl => tpl.checked == 1);
       setAvailableTemplates(enabledTemplates);
 
       // If there are available templates, select the first one by default

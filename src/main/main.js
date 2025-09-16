@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import path from 'node:path';
 import fs from 'fs';
 import { initializeDatabase, createProject, getProjects, getProjectById, findVoucherByCode, assignPhotosToCustomer, getCustomersByProjectId, getPhotosByCustomerId, revertPhotosToRaw, runHealthCheckForProject, saveCroppedImage, generateVouchersForProject, redeemVoucher, getEditedPhotosByCustomerId, getAllTemplates, createTemplate, setTemplatesForProject, getTemplatesForProject, exportGridImage } from './services/database.js';
@@ -113,7 +113,12 @@ app.whenReady().then(() => {
     return canceled ? null : filePaths[0];
   });
 
-  ipcMain.handle('get-templates-for-project', (event, data) => getTemplatesForProject());
+  ipcMain.handle('open-folder', (e, { basePath, subfolder }) => {
+    const fullPath = path.join(basePath, subfolder);
+    shell.openPath(fullPath);
+  });
+
+  ipcMain.handle('get-templates-for-project', (event, data) => getTemplatesForProject(data));
 
   ipcMain.handle('set-templates-for-project', (event, data) => setTemplatesForProject(data));
 

@@ -39,7 +39,7 @@ function PhotoPreviewModal({ customer, project, onClose, onRevert, onSetActive, 
                         </div>
                     ))}
                 </div>
-                <div className="modal-actions">
+                <div className="modal-actions-left">
                     <button className="btn-primary" onClick={() => onGoToGridCreator(customer)}>Create Grid</button>
                     <button className="btn-secondary" onClick={() => onSetActive(customer)}>Set as Active</button>
                     <button className="btn-secondary" onClick={onClose}>Close</button>

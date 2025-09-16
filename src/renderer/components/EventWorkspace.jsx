@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import PhotoPreviewModal from './PhotoPreviewModal';
+import path from 'path';
 
 function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
   const [project, setProject] = useState(null);
@@ -237,7 +238,19 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
         </div>
 
         <div className="unassigned-photos-panel">
-          <h3>Unassigned Photos ({unassignedPhotos.length})</h3>
+          <div className="panel-header">
+            <h3>Unassigned Photos ({unassignedPhotos.length})</h3>
+            <button
+              className="btn-icon"
+              title="Open Raw Photos Folder"
+              onClick={() => window.api.openFolder({
+                basePath: project.folder_path,
+                subfolder: 'raw'
+              })}
+            >
+              📁
+            </button>
+          </div>
           <div className="unassigned-content">
             <div className="photo-queue">
               {unassignedPhotos.map(photo => (
