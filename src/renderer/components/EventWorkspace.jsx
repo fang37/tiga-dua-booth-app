@@ -148,6 +148,61 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
     }
   };
 
+  const handleDistribute = async (customer) => {
+    alert('Finding all exported files and starting distribution...');
+
+    // 1. Get ALL exported files for this customer
+  const filePaths = await window.api.getExportedFilesForCustomer({
+    projectPath: project.folder_path,
+    voucherCode: customer.voucherCode,
+  });
+
+  if (filePaths.length === 0) {
+    alert('Error: No exported files found for this customer.');
+    return;
+  }
+
+   // 2. Upload ALL found files to Google Drive
+  const driveResult = await window.api.distributeToDrive({
+    filePaths: filePaths, // Pass the array of paths
+    projectName: project.name,
+    voucherCode: customer.voucherCode,
+    eventDate: project.event_date,
+  });
+
+    if (!driveResult.success) {
+      alert(`Google Drive upload failed: ${driveResult.error}`);
+      return;
+    }
+
+    // After successful upload, update our database
+    await window.api.setVoucherDistributed({
+      voucherId: customer.voucherId,
+      link: driveResult.link
+    });
+    
+    fetchCustomers();
+
+    // 3. (Optional) Send to your mapping service
+    try {
+      // Replace with your actual API endpoint
+      const response = await fetch('https://api.yourdomain.com/map-voucher', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          voucher_code: customer.voucherCode,
+          drive_link: driveResult.link,
+        }),
+      });
+      if (!response.ok) throw new Error('Mapping service failed.');
+
+      alert(`Distribution complete! Link: ${driveResult.link}`);
+
+    } catch (error) {
+      alert(`Mapping service failed: ${error.message}`);
+    }
+  };
+
   const filteredCustomers = customerList.filter(customer =>
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.voucherCode.toLowerCase().includes(searchTerm.toLowerCase())
@@ -168,6 +223,7 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
         onRevert={handleRevertPhotos}
         onSetActive={setActiveCustomer}
         onGoToGridCreator={onGoToGridCreator}
+        onDistribute={handleDistribute}
       />
 
       <div className="workspace-main">
@@ -326,7 +382,11 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
                     <span>{cust.voucherCode}</span>
                   </div>
                   <div className="customer-badges">
-                    {cust.export_status === 'exported' && <span className="badge exported">✔ Exported</span>}
+                    {cust.distribution_status === 'distributed' ? (
+                      <span className="badge distributed">✔ Distributed</span>
+                    ) : cust.export_status === 'exported' ? (
+                      <span className="badge exported">✔ Exported</span>
+                    ) : null}
                     <div className="photo-count">{cust.photoCount}</div>
                   </div>
                 </div>

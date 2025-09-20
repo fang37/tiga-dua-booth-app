@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-function PhotoPreviewModal({ customer, project, onClose, onRevert, onSetActive, onGoToGridCreator }) {
+function PhotoPreviewModal({ customer, project, onClose, onRevert, onSetActive, onGoToGridCreator, onDistribute  }) {
     const [photos, setPhotos] = useState([]);
 
     useEffect(() => {
@@ -40,6 +40,14 @@ function PhotoPreviewModal({ customer, project, onClose, onRevert, onSetActive, 
                     ))}
                 </div>
                 <div className="modal-actions-left">
+                    <button
+                        className="btn-primary"
+                        onClick={() => onDistribute(customer)}
+                        disabled={customer.export_status !== 'exported'}
+                        title={customer.export_status !== 'exported' ? 'You must export the grid first' : ''}
+                    >
+                        Distribute to Customer
+                    </button>
                     <button className="btn-primary" onClick={() => onGoToGridCreator(customer)}>Create Grid</button>
                     <button className="btn-secondary" onClick={() => onSetActive(customer)}>Set as Active</button>
                     <button className="btn-secondary" onClick={onClose}>Close</button>

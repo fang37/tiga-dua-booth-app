@@ -1,8 +1,9 @@
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import path from 'node:path';
 import fs from 'fs';
-import { initializeDatabase, createProject, getProjects, getProjectById, findVoucherByCode, assignPhotosToCustomer, getCustomersByProjectId, getPhotosByCustomerId, revertPhotosToRaw, runHealthCheckForProject, saveCroppedImage, generateVouchersForProject, redeemVoucher, getEditedPhotosByCustomerId, getAllTemplates, createTemplate, setTemplatesForProject, getTemplatesForProject, exportGridImage } from './services/database.js';
+import { initializeDatabase, createProject, getProjects, getProjectById, findVoucherByCode, assignPhotosToCustomer, getCustomersByProjectId, getPhotosByCustomerId, revertPhotosToRaw, runHealthCheckForProject, saveCroppedImage, generateVouchersForProject, redeemVoucher, getEditedPhotosByCustomerId, getAllTemplates, createTemplate, setTemplatesForProject, getTemplatesForProject, exportGridImage, setVoucherDistributed, getExportedFilesForCustomer } from './services/database.js';
 import { generateThumbnail } from './services/thumbnailService.js';
+import { distributeToDrive } from './services/googleDriveService.js';
 import started from 'electron-squirrel-startup';
 import chokidar from 'chokidar';
 
@@ -113,14 +114,31 @@ app.whenReady().then(() => {
     return canceled ? null : filePaths[0];
   });
 
-  ipcMain.handle('open-folder', (e, { basePath, subfolder }) => {
-    const fullPath = path.join(basePath, subfolder);
+  ipcMain.handle('open-folder', (event, data) => {
+    let fullPath;
+    if (data.customerFolder) {
+      fullPath = path.join(data.basePath, data.customerFolder, data.subfolder);
+    } else {
+      fullPath = path.join(data.basePath, data.subfolder);
+    }
     shell.openPath(fullPath);
   });
 
   ipcMain.handle('get-templates-for-project', (event, data) => getTemplatesForProject(data));
 
   ipcMain.handle('set-templates-for-project', (event, data) => setTemplatesForProject(data));
+
+  ipcMain.handle('distribute-to-drive', async (event, data) => {
+    return distributeToDrive(data);
+  });
+
+  ipcMain.handle('set-voucher-distributed', (event, data) => {
+    return setVoucherDistributed(data);
+  });
+
+  ipcMain.handle('get-exported-files-for-customer', (event, data) => {
+    return getExportedFilesForCustomer(data);
+  });
 
   ipcMain.on('start-watching', (event, projectPath) => {
     const rawFolderPath = path.join(projectPath, 'raw');

@@ -36,27 +36,27 @@ function GridCreator({ customer, projectId, onBack }) {
   const [cropImage, setCropImage] = useState(null);
   const [firstSelectedIndex, setFirstSelectedIndex] = useState(null);
 
+  const loadData = async () => {
+    if (customer) {
+      const projectDetails = await window.api.getProjectById(projectId);
+      setProject(projectDetails);
+
+      const photos = await window.api.getEditedPhotos(customer.id);
+      setEditedPhotos(photos);
+    }
+
+    // Fetch only the templates enabled for this project
+    const templatesForProject = await window.api.getTemplatesForProject(projectId);
+    const enabledTemplates = templatesForProject.filter(tpl => tpl.checked == 1);
+    setAvailableTemplates(enabledTemplates);
+
+    // If there are available templates, select the first one by default
+    if (enabledTemplates.length > 0 && !selectedTemplate) {
+      handleSelectTemplate(enabledTemplates[0]);
+    }
+  };
+
   useEffect(() => {
-    const loadData = async () => {
-      if (customer) {
-        const projectDetails = await window.api.getProjectById(projectId);
-        setProject(projectDetails);
-
-        const photos = await window.api.getEditedPhotos(customer.id);
-        setEditedPhotos(photos);
-      }
-
-      // Fetch only the templates enabled for this project
-      const templatesForProject = await window.api.getTemplatesForProject(projectId);
-      const enabledTemplates = templatesForProject.filter(tpl => tpl.checked == 1);
-      setAvailableTemplates(enabledTemplates);
-
-      // If there are available templates, select the first one by default
-      if (enabledTemplates.length > 0) {
-        handleSelectTemplate(enabledTemplates[0]);
-      }
-    };
-
     if (customer) {
       loadData();
     }
@@ -190,7 +190,7 @@ function GridCreator({ customer, projectId, onBack }) {
       projectPath: project.folder_path,
       imagePaths: gridSlots,
       template: selectedTemplate,
-      customerId: customer.id 
+      customerId: customer.id
     });
 
     if (result.success) {
@@ -212,7 +212,26 @@ function GridCreator({ customer, projectId, onBack }) {
 
       <div className="grid-toolbar">
         <button className="btn-secondary back-btn" onClick={onBack}>&larr; Back to Workspace</button>
-        <h3>Edited Photos</h3>
+        <div className="panel-header">
+          <h3>Edited Photos</h3>
+          <div>
+            <button className="btn-icon" title="Refresh List" onClick={loadData}>🔄</button>
+            <button
+              className="btn-icon"
+              title="Open Edited Photos Folder"
+              onClick={() => {
+                window.api.openFolder({
+                  basePath: project.folder_path,
+                  customerFolder: customer.voucherCode,
+                  subfolder: 'edited'
+                });
+              }}
+            >
+              📁
+            </button>
+          </div>
+        </div>
+
         <div className="edited-photo-list">
           {editedPhotos.map((photo) => (
             <div
@@ -242,7 +261,7 @@ function GridCreator({ customer, projectId, onBack }) {
       <div className="grid-canvas">
         {selectedTemplate && layoutConfig ? (
           <div className="preview-wrapper">
-            <div 
+            <div
               className="preview-box"
               style={previewStyle}
             >

@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('api', {
     getCustomersByProjectId: (id) => ipcRenderer.invoke('get-customers-by-project-id', id),
     findVoucherByCode: (data) => ipcRenderer.invoke('find-voucher-by-code', data),
     redeemVoucher: (data) => ipcRenderer.invoke('redeem-voucher', data),
+    setVoucherDistributed: (data) => ipcRenderer.invoke('set-voucher-distributed', data),
+    getExportedFilesForCustomer : (data) => ipcRenderer.invoke('get-exported-files-for-customer', data),
 
     // Photo Management
     assignPhotos: (data) => ipcRenderer.invoke('assign-photos', data),
@@ -38,4 +40,6 @@ contextBridge.exposeInMainWorld('api', {
     getTemplatesForProject: (data) => ipcRenderer.invoke('get-templates-for-project',data),
     setTemplatesForProject: (data) => ipcRenderer.invoke('set-templates-for-project', data),
 
+    // API
+    distributeToDrive: (data) => ipcRenderer.invoke('distribute-to-drive', data),
 });

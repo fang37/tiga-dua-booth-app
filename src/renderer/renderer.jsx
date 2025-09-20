@@ -26,14 +26,25 @@ function App() {
     setCurrentView('grid');
   };
 
-   return (
+  return (
     <div className="app-container">
       <div className="sidebar">
         <h2>Tiga Dua Booth</h2>
         <nav>
           <ul>
-            <li onClick={navigateToDashboard}>Projects</li>
-            <li onClick={() => setCurrentView('templates')}>Settings</li>
+            <li
+              className={currentView === 'dashboard' ? 'active-nav' : ''}
+              onClick={navigateToDashboard}
+            >
+              Projects
+            </li>
+            <li
+              className={currentView === 'templates' ? 'active-nav' : ''}
+              onClick={() => setCurrentView('templates')}
+            >
+              Template Manager
+            </li>
+            <li className="disabled-nav">Settings</li>
           </ul>
         </nav>
       </div>
@@ -42,17 +53,17 @@ function App() {
           <ProjectDashboard onProjectSelect={navigateToWorkspace} />
         )}
         {currentView === 'workspace' && (
-           <EventWorkspace 
-            projectId={selectedProjectId} 
+          <EventWorkspace
+            projectId={selectedProjectId}
             onBack={navigateToDashboard}
             onGoToGridCreator={navigateToGridCreator}
           />
         )}
         {currentView === 'grid' && (
-          <GridCreator 
+          <GridCreator
             customer={selectedCustomer}
             projectId={selectedProjectId}
-            onBack={() => setCurrentView('workspace')} 
+            onBack={() => setCurrentView('workspace')}
           />
         )}
         {currentView === 'templates' && (

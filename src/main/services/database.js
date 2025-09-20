@@ -24,6 +24,8 @@ function initializeDatabase() {
       project_id INTEGER NOT NULL,
       code TEXT NOT NULL UNIQUE,
       status TEXT NOT NULL DEFAULT 'available',
+      distribution_status TEXT DEFAULT 'pending',
+      drive_link TEXT,
       FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
     );
 
@@ -36,6 +38,7 @@ function initializeDatabase() {
       folder_path TEXT NOT NULL UNIQUE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       export_status TEXT DEFAULT 'pending',
+      exported_file_path TEXT,
       FOREIGN KEY (voucher_id) REFERENCES vouchers (id) ON DELETE CASCADE
     );
 
@@ -69,6 +72,9 @@ function initializeDatabase() {
   // Execute the SQL to create tables
   db.exec(setupSql);
   // db.prepare("ALTER TABLE customers ADD COLUMN export_status TEXT DEFAULT 'pending'").run();
+  // db.prepare("ALTER TABLE customers ADD COLUMN exported_file_path TEXT").run();
+  // db.prepare("ALTER TABLE vouchers ADD COLUMN distribution_status TEXT DEFAULT 'pending'").run();
+  // db.prepare("ALTER TABLE vouchers ADD COLUMN drive_link TEXT").run();
   console.log('Database has been initialized.');
 }
 
@@ -354,9 +360,12 @@ function getCustomersByProjectId(projectId) {
   SELECT 
       c.id, 
       c.name, 
+      c.export_status, 
+      c.exported_file_path, 
       v.code as voucherCode, 
-      c.export_status,
-      (SELECT COUNT(p.id) FROM photos p WHERE c.id = p.customer_id) as photoCount 
+      v.id as voucherId, 
+      v.distribution_status,
+      (SELECT COUNT(p.id) FROM photos p WHERE c.id = p.customer_id) as photoCount
     FROM customers c
     JOIN vouchers v ON c.voucher_id = v.id
     WHERE v.project_id = ?
@@ -465,7 +474,21 @@ async function exportGridImage({ projectPath, imagePaths, template, customerId }
       fs.mkdirSync(finalFolderPath, { recursive: true });
     }
 
-    const outputName = `grid-${Date.now()}.jpg`;
+     // 1. Get the customer's voucher code
+    const customerInfo = db.prepare(`
+      SELECT v.code as voucherCode 
+      FROM customers c JOIN vouchers v ON c.voucher_id = v.id 
+      WHERE c.id = ?
+    `).get(customerId);
+    if (!customerInfo) throw new Error('Customer not found for export naming.');
+
+    // 2. Count existing exports for this customer to get the index
+    const exportCount = fs.readdirSync(finalFolderPath)
+      .filter(file => file.startsWith(customerInfo.voucherCode + '-')).length;
+    const newIndex = exportCount + 1;
+
+    // 3. Create the new standardized filename
+    const outputName = `${customerInfo.voucherCode}-${newIndex}.jpg`;
     const outputPath = path.join(finalFolderPath, outputName);
 
     const DPI = 300;
@@ -533,13 +556,37 @@ async function exportGridImage({ projectPath, imagePaths, template, customerId }
       .withMetadata({ density: DPI })
       .toFile(outputPath);
 
-    db.prepare("UPDATE customers SET export_status = 'exported' WHERE id = ?").run(customerId);
+    db.prepare("UPDATE customers SET export_status = 'exported', exported_file_path = ? WHERE id = ?")
+      .run(outputPath, customerId);
 
     console.log(`Grid exported and status updated for customer ${customerId}`);
     return { success: true, path: outputPath };
   } catch (error) {
     console.error('Failed to export grid:', error);
     return { success: false, error: error.message };
+  }
+}
+
+function setVoucherDistributed({ voucherId, link }) {
+  return db.prepare("UPDATE vouchers SET distribution_status = 'distributed', drive_link = ? WHERE id = ?")
+           .run(link, voucherId);
+}
+
+// This function finds all files in the /final folder for a specific voucher
+function getExportedFilesForCustomer({ projectPath, voucherCode }) {
+  try {
+    const finalFolderPath = path.join(projectPath, 'final');
+    if (!fs.existsSync(finalFolderPath)) return [];
+
+    const allFiles = fs.readdirSync(finalFolderPath);
+    const customerFiles = allFiles
+      .filter(file => file.startsWith(voucherCode + '-'))
+      .map(file => path.join(finalFolderPath, file));
+      
+    return customerFiles;
+  } catch (error) {
+    console.error('Failed to find exported files:', error);
+    return [];
   }
 }
 
@@ -564,5 +611,7 @@ export {
   createTemplate,
   getTemplatesForProject,
   setTemplatesForProject,
-  exportGridImage
+  exportGridImage,
+  setVoucherDistributed,
+  getExportedFilesForCustomer
 };

@@ -48,6 +48,17 @@ html,
   background-color: #333333;
 }
 
+.sidebar nav li.active-nav {
+  background-color: #0e639c;
+  color: white;
+  padding-left: 10px;
+}
+
+.sidebar nav li.disabled-nav {
+  color: #555;
+  cursor: not-allowed;
+}
+
 .content {
   flex-grow: 1;
   padding: 20px;
@@ -464,6 +475,8 @@ html,
   color: white;
 }
 
+.badge.distributed { background-color: #8e44ad; }
+
 .photo-count {
   background-color: #0e639c;
   color: white;
@@ -807,6 +820,8 @@ html,
 .preview-wrapper {
   position: relative;
   display: inline-block;
+  margin-top: 30px;
+  margin-left: 30px;
 }
 
 .preview-container-wrapper {
