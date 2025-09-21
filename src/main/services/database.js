@@ -590,6 +590,19 @@ function getExportedFilesForCustomer({ projectPath, voucherCode }) {
   }
 }
 
+function updateVoucherStatus({ voucherId, status, link = null }) {
+  if (link) {
+    db.prepare("UPDATE vouchers SET distribution_status = ?, drive_link = ? WHERE id = ?")
+      .run(status, link, voucherId);
+  } else {
+    db.prepare("UPDATE vouchers SET distribution_status = ? WHERE id = ?")
+      .run(status, voucherId);
+  }
+
+  console.log(`Vocuher ${voucherId} status updated to ${status}`);
+  return { success: true };
+}
+
 // Export the database instance and the setup function using ES Module syntax
 export {
   db,
@@ -613,5 +626,6 @@ export {
   setTemplatesForProject,
   exportGridImage,
   setVoucherDistributed,
-  getExportedFilesForCustomer
+  getExportedFilesForCustomer,
+  updateVoucherStatus
 };

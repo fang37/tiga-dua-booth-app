@@ -194,7 +194,8 @@ function GridCreator({ customer, projectId, onBack }) {
     });
 
     if (result.success) {
-      alert(`Grid successfully exported! Saved to: ${result.path}`);
+      await window.api.updateVoucherStatus({ voucherId: customer.voucherId, status: 'exported' });
+      alert(`Grid successfully exported!`);
     } else {
       alert(`Error exporting grid: ${result.error}`);
     }

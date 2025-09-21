@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('api', {
     redeemVoucher: (data) => ipcRenderer.invoke('redeem-voucher', data),
     setVoucherDistributed: (data) => ipcRenderer.invoke('set-voucher-distributed', data),
     getExportedFilesForCustomer : (data) => ipcRenderer.invoke('get-exported-files-for-customer', data),
+    updateVoucherStatus : (data) => ipcRenderer.invoke('update-voucher-status', data),
 
     // Photo Management
     assignPhotos: (data) => ipcRenderer.invoke('assign-photos', data),
@@ -42,4 +43,5 @@ contextBridge.exposeInMainWorld('api', {
 
     // API
     distributeToDrive: (data) => ipcRenderer.invoke('distribute-to-drive', data),
+    sendLinkToMapper: (data) => ipcRenderer.invoke('send-link-to-mapper', data),
 });

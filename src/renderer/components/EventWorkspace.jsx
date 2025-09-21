@@ -151,55 +151,54 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
   const handleDistribute = async (customer) => {
     alert('Finding all exported files and starting distribution...');
 
-    // 1. Get ALL exported files for this customer
-  const filePaths = await window.api.getExportedFilesForCustomer({
-    projectPath: project.folder_path,
-    voucherCode: customer.voucherCode,
-  });
+    // Get ALL exported files for this customer
+    const filePaths = await window.api.getExportedFilesForCustomer({
+      projectPath: project.folder_path,
+      voucherCode: customer.voucherCode,
+    });
 
-  if (filePaths.length === 0) {
-    alert('Error: No exported files found for this customer.');
-    return;
-  }
-
-   // 2. Upload ALL found files to Google Drive
-  const driveResult = await window.api.distributeToDrive({
-    filePaths: filePaths, // Pass the array of paths
-    projectName: project.name,
-    voucherCode: customer.voucherCode,
-    eventDate: project.event_date,
-  });
-
-    if (!driveResult.success) {
-      alert(`Google Drive upload failed: ${driveResult.error}`);
+    if (filePaths.length === 0 && customer.export_status !== 'exported') {
+      alert('Error: No exported files found for this customer.');
       return;
     }
 
-    // After successful upload, update our database
-    await window.api.setVoucherDistributed({
-      voucherId: customer.voucherId,
-      link: driveResult.link
-    });
-    
-    fetchCustomers();
-
-    // 3. (Optional) Send to your mapping service
     try {
-      // Replace with your actual API endpoint
-      const response = await fetch('https://api.yourdomain.com/map-voucher', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          voucher_code: customer.voucherCode,
-          drive_link: driveResult.link,
-        }),
-      });
-      if (!response.ok) throw new Error('Mapping service failed.');
+      let driveLink = customer.drive_link;
 
-      alert(`Distribution complete! Link: ${driveResult.link}`);
+      // Upload ALL found files to Google Drive
+      if (customer.distribution_status !== 'uploaded' && customer.distribution_status !== 'mapped') {
+        alert('Uploading to Google Drive...');
+        const driveResult = await window.api.distributeToDrive({
+          filePaths: filePaths,
+          projectName: project.name,
+          voucherCode: customer.voucherCode,
+          eventDate: project.event_date,
+        });
+        if (!driveResult.success) throw new Error(driveResult.error);
+
+        driveLink = driveResult.link;
+        await window.api.updateVoucherStatus({ voucherId: customer.voucherId, status: 'uploaded', link: driveLink });
+        fetchCustomers();
+      }
+
+      console.log('Sending link to mapping service...');
+      const mapperResult = await window.api.sendLinkToMapper({
+        voucherCode: customer.voucherCode,
+        driveLink: driveLink,
+      });
+
+      if (!mapperResult.success) throw new Error(mapperResult.error);
+
+      await window.api.updateVoucherStatus({ voucherId: customer.voucherId, status: 'distributed' });
+      fetchCustomers();
+
+      alert(`Distribution complete! Link successfully mapped.`);
 
     } catch (error) {
-      alert(`Mapping service failed: ${error.message}`);
+      // If any step fails, mark it as 'failed'
+      await window.api.updateVoucherStatus({ voucherId: customer.voucherId, status: 'failed' });
+      fetchCustomers();
+      alert(`Distribution failed: ${error.message}`);
     }
   };
 
@@ -337,6 +336,7 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
       <div className="workspace-sidebar">
         <div className="active-customer-panel">
           <h3>Active Customer</h3>
+          <h3>x</h3>
           {activeCustomer ? (
             <>
               <p><strong>Name:</strong> {activeCustomer.name}</p>
@@ -382,11 +382,10 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
                     <span>{cust.voucherCode}</span>
                   </div>
                   <div className="customer-badges">
-                    {cust.distribution_status === 'distributed' ? (
-                      <span className="badge distributed">✔ Distributed</span>
-                    ) : cust.export_status === 'exported' ? (
-                      <span className="badge exported">✔ Exported</span>
-                    ) : null}
+                    {cust.distribution_status === 'distributed' && <span className="badge distributed">✔ Distributed</span>}
+                    {cust.distribution_status === 'uploaded' && <span className="badge uploaded">✔ Uploaded</span>}
+                    {cust.distribution_status === 'failed' && <span className="badge failed">✖ Failed</span>}
+                    {cust.export_status === 'exported' && cust.distribution_status === 'pending' && <span className="badge exported">✔ Exported</span>}
                     <div className="photo-count">{cust.photoCount}</div>
                   </div>
                 </div>

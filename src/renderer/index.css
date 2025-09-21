@@ -470,6 +470,9 @@ html,
   border-radius: 4px;
 }
 
+.badge.uploaded { background-color: #f39c12; }
+.badge.failed { background-color: #e74c3c; }
+
 .badge.exported {
   background-color: #27ae60;
   color: white;

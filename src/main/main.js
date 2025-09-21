@@ -1,9 +1,11 @@
+import 'dotenv/config';
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import path from 'node:path';
 import fs from 'fs';
-import { initializeDatabase, createProject, getProjects, getProjectById, findVoucherByCode, assignPhotosToCustomer, getCustomersByProjectId, getPhotosByCustomerId, revertPhotosToRaw, runHealthCheckForProject, saveCroppedImage, generateVouchersForProject, redeemVoucher, getEditedPhotosByCustomerId, getAllTemplates, createTemplate, setTemplatesForProject, getTemplatesForProject, exportGridImage, setVoucherDistributed, getExportedFilesForCustomer } from './services/database.js';
+import { initializeDatabase, createProject, getProjects, getProjectById, findVoucherByCode, assignPhotosToCustomer, getCustomersByProjectId, getPhotosByCustomerId, revertPhotosToRaw, runHealthCheckForProject, saveCroppedImage, generateVouchersForProject, redeemVoucher, getEditedPhotosByCustomerId, getAllTemplates, createTemplate, setTemplatesForProject, getTemplatesForProject, exportGridImage, setVoucherDistributed, getExportedFilesForCustomer, updateVoucherStatus } from './services/database.js';
 import { generateThumbnail } from './services/thumbnailService.js';
 import { distributeToDrive } from './services/googleDriveService.js';
+import { sendLinkToMapper } from './services/apiService.js';
 import started from 'electron-squirrel-startup';
 import chokidar from 'chokidar';
 
@@ -128,13 +130,13 @@ app.whenReady().then(() => {
 
   ipcMain.handle('set-templates-for-project', (event, data) => setTemplatesForProject(data));
 
-  ipcMain.handle('distribute-to-drive', async (event, data) => {
-    return distributeToDrive(data);
-  });
+  ipcMain.handle('distribute-to-drive', async (event, data) => {return distributeToDrive(data);});
 
-  ipcMain.handle('set-voucher-distributed', (event, data) => {
-    return setVoucherDistributed(data);
-  });
+  ipcMain.handle('send-link-to-mapper', async (event, data) => {return sendLinkToMapper(data);});
+
+  ipcMain.handle('set-voucher-distributed', (event, data) => {return setVoucherDistributed(data);});
+  
+  ipcMain.handle('update-voucher-status', (event, data) => {return updateVoucherStatus(data);});
 
   ipcMain.handle('get-exported-files-for-customer', (event, data) => {
     return getExportedFilesForCustomer(data);
