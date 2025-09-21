@@ -101,13 +101,17 @@ function GridCreator({ customer, projectId, onBack }) {
 
     if (result.success) {
       const newSlots = [...gridSlots];
+      const newSlotData = {
+        originalPath: cropImage.path, 
+        croppedPath: result.filePath,
+      };
       if (cropImage.index !== null) {
         // Re-cropping an image already in a slot
-        newSlots[cropImage.index] = result.filePath;
+        newSlots[cropImage.index] = newSlotData;
       } else {
         // Cropping a new image for the next empty slot
         const nextEmptySlot = newSlots.findIndex(slot => slot === null);
-        if (nextEmptySlot !== -1) newSlots[nextEmptySlot] = result.filePath;
+        if (nextEmptySlot !== -1) newSlots[nextEmptySlot] = newSlotData;
       }
       setGridSlots(newSlots);
     }
@@ -271,9 +275,9 @@ function GridCreator({ customer, projectId, onBack }) {
                   key={index}
                   className={`grid-cell ${firstSelectedIndex === index ? 'selected-for-swap' : ''}`}
                   onClick={() => handleGridCellClick(index)}
-                  onDoubleClick={() => photoPath && handleOpenCropper(photoPath, index)}
+                  onDoubleClick={() => photoPath && handleOpenCropper(photoPath.originalPath, index)}
                 >
-                  {photoPath ? <img src={`file://${photoPath}`} alt={`Slot ${index + 1}`} /> : <p>+</p>}
+                  {photoPath ? <img src={`file://${photoPath.croppedPath}`} alt={`Slot ${index + 1}`} /> : <p>+</p>}
                   <button 
                       className="btn-delete-slot" 
                       onClick={(e) => {

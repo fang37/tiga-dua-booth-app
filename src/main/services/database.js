@@ -5,7 +5,7 @@ import Database from 'better-sqlite3';
 import sharp from 'sharp';
 
 // Define the path for our database file.
-const dbPath = path.resolve(__dirname, '../../../photobooth.db');
+const dbPath = path.resolve(app.getPath('userData'), 'tigaduabooth.db');
 const db = new Database(dbPath);
 
 // A function to initialize the database tables
@@ -75,7 +75,59 @@ function initializeDatabase() {
   // db.prepare("ALTER TABLE customers ADD COLUMN exported_file_path TEXT").run();
   // db.prepare("ALTER TABLE vouchers ADD COLUMN distribution_status TEXT DEFAULT 'pending'").run();
   // db.prepare("ALTER TABLE vouchers ADD COLUMN drive_link TEXT").run();
+
+  seedTemplates();
+
   console.log('Database has been initialized.');
+}
+
+function seedTemplates() {
+  try {
+    const stmt = db.prepare('INSERT INTO templates (name, layout_config, background_color) VALUES (?, ?, ?)');
+
+    // Use a transaction for efficiency
+    const seedTemplates = db.transaction(() => {
+      // Check if templates already exist to prevent duplicates
+      const count = db.prepare('SELECT COUNT(*) as count FROM templates').get().count;
+      if (count === 0) {
+        console.log('Seeding default templates...');
+        // 1. Basic 4x1
+        stmt.run(
+          'Basic 4x1',
+          `{"rows":4,"cols":1,"gap_mm":3,"padding_mm":{"top":4,"bottom":15,"left":4,"right":4},"print_width_mm":51,"print_height_mm":152,"grid_aspect_ratio":"51 / 152","crop_aspect_ratio":1.3870967741935485}`,
+          '#FFFFFF'
+        );
+        // 2. Basic 3x1
+        stmt.run(
+          'Basic 3x1',
+          `{"rows":3,"cols":1,"gap_mm":3,"padding_mm":{"top":4,"bottom":15,"left":4,"right":4},"print_width_mm":51,"print_height_mm":152,"grid_aspect_ratio":"51 / 152","crop_aspect_ratio":1.015748031496063}`,
+          '#FFFFFF'
+        );
+        // 3. Basic 1x1
+        stmt.run(
+          'Basic 1x1',
+          `{"rows":1,"cols":1,"gap_mm":0,"padding_mm":{"top":5,"bottom":20,"left":5,"right":5},"print_width_mm":102,"print_height_mm":152,"grid_aspect_ratio":"102 / 152","crop_aspect_ratio":0.7244094488188977}`,
+          '#F5F5F5'
+        );
+        // 4. Basic 2x2
+        stmt.run(
+          'Basic 2x2',
+          `{"rows":2,"cols":2,"gap_mm":4,"padding_mm":{"top":5,"bottom":20,"left":5,"right":5},"print_width_mm":102,"print_height_mm":152,"grid_aspect_ratio":"102 / 152","crop_aspect_ratio":0.7154471544715447}`,
+          '#FFFFFF'
+        );
+        // 4. Basic 1x3
+        stmt.run(
+          'Basic 1x3',
+          `{"rows":1,"cols":3,"gap_mm":4,"padding_mm":{"top":5,"bottom":20,"left":5,"right":5},"print_width_mm":152,"print_height_mm":102,"grid_aspect_ratio":"152 / 102","crop_aspect_ratio":0.5800865800865801}`,
+          '#FFFFFF'
+        );
+      }
+    });
+
+    seedTemplates();
+  } catch (error) {
+    console.error("Failed to seed templates:", error);
+  }
 }
 
 function createProject({ name, event_date }) {
@@ -514,8 +566,8 @@ async function exportGridImage({ projectPath, imagePaths, template, customerId }
     // Step 1: Prepare the photo grid composite operations
     const resizedImageBuffers = await Promise.all(
       imagePaths.map(imgPath => {
-        if (!imgPath) return null;
-        return sharp(imgPath)
+        if (!imgPath || !imgPath.croppedPath) return null;
+        return sharp(imgPath.croppedPath)
           .resize(Math.round(cellWidth), Math.round(cellHeight), { fit: 'cover' })
           .toBuffer();
       })

@@ -385,7 +385,7 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
                     {cust.distribution_status === 'distributed' && <span className="badge distributed">✔ Distributed</span>}
                     {cust.distribution_status === 'uploaded' && <span className="badge uploaded">✔ Uploaded</span>}
                     {cust.distribution_status === 'failed' && <span className="badge failed">✖ Failed</span>}
-                    {cust.export_status === 'exported' && cust.distribution_status === 'pending' && <span className="badge exported">✔ Exported</span>}
+                    {cust.export_status === 'exported' && (cust.distribution_status === 'pending' || cust.distribution_status === 'exported') && <span className="badge exported">✔ Exported</span>}
                     <div className="photo-count">{cust.photoCount}</div>
                   </div>
                 </div>
