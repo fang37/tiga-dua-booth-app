@@ -274,6 +274,15 @@ function GridCreator({ customer, projectId, onBack }) {
                   onDoubleClick={() => photoPath && handleOpenCropper(photoPath, index)}
                 >
                   {photoPath ? <img src={`file://${photoPath}`} alt={`Slot ${index + 1}`} /> : <p>+</p>}
+                  <button 
+                      className="btn-delete-slot" 
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevents other clicks from firing
+                        handleDeleteFromSlot(index);
+                      }}
+                    >
+                      &times;
+                    </button>
                 </div>
               ))}
             </div>
