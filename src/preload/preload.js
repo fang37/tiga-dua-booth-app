@@ -15,8 +15,8 @@ contextBridge.exposeInMainWorld('api', {
     findVoucherByCode: (data) => ipcRenderer.invoke('find-voucher-by-code', data),
     redeemVoucher: (data) => ipcRenderer.invoke('redeem-voucher', data),
     setVoucherDistributed: (data) => ipcRenderer.invoke('set-voucher-distributed', data),
-    getExportedFilesForCustomer : (data) => ipcRenderer.invoke('get-exported-files-for-customer', data),
-    updateVoucherStatus : (data) => ipcRenderer.invoke('update-voucher-status', data),
+    getExportedFilesForCustomer: (data) => ipcRenderer.invoke('get-exported-files-for-customer', data),
+    updateVoucherStatus: (data) => ipcRenderer.invoke('update-voucher-status', data),
 
     // Photo Management
     assignPhotos: (data) => ipcRenderer.invoke('assign-photos', data),
@@ -39,13 +39,23 @@ contextBridge.exposeInMainWorld('api', {
     // Template Management
     getAllTemplates: () => ipcRenderer.invoke('get-all-templates'),
     createTemplate: (data) => ipcRenderer.invoke('create-template', data),
-    getTemplatesForProject: (data) => ipcRenderer.invoke('get-templates-for-project',data),
+    getTemplatesForProject: (data) => ipcRenderer.invoke('get-templates-for-project', data),
     setTemplatesForProject: (data) => ipcRenderer.invoke('set-templates-for-project', data),
 
     // API
     distributeToDrive: (data) => ipcRenderer.invoke('distribute-to-drive', data),
     sendLinkToMapper: (data) => ipcRenderer.invoke('send-link-to-mapper', data),
-    
+    batchDistributeAll: () => ipcRenderer.invoke('batch-distribute-all'),
+    distributeSingleCustomer: (customerId) => ipcRenderer.invoke('distribute-single-customer', customerId),
+    onBatchProgress: (callback) => {
+        const channel = 'batch-progress-update';
+        const listener = (_event, value) => callback(value);
+        ipcRenderer.on(channel, listener);
+        return () => {
+            ipcRenderer.removeListener(channel, listener);
+        };
+    },
+
     // Apps Settings
     getSetting: (data) => ipcRenderer.invoke('get-setting', data),
     saveSetting: (data) => ipcRenderer.invoke('save-setting', data),

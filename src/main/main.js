@@ -3,10 +3,11 @@ import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import path from 'node:path';
 import fs from 'fs';
 import { getSetting, saveSetting } from './services/settingsService.js';
-import { initializeDatabase, createProject, getProjects, getProjectById, findVoucherByCode, assignPhotosToCustomer, getCustomersByProjectId, getPhotosByCustomerId, revertPhotosToRaw, runHealthCheckForProject, saveCroppedImage, generateVouchersForProject, redeemVoucher, getEditedPhotosByCustomerId, getAllTemplates, createTemplate, setTemplatesForProject, getTemplatesForProject, exportGridImage, setVoucherDistributed, getExportedFilesForCustomer, updateVoucherStatus, generateVouchersAndQRCodes } from './services/database.js';
+import { initializeDatabase, createProject, getProjects, getProjectById, findVoucherByCode, assignPhotosToCustomer, getCustomersByProjectId, getPhotosByCustomerId, revertPhotosToRaw, runHealthCheckForProject, saveCroppedImage, generateVouchersForProject, redeemVoucher, getEditedPhotosByCustomerId, getAllTemplates, createTemplate, setTemplatesForProject, getTemplatesForProject, exportGridImage, setVoucherDistributed, getExportedFilesForCustomer, updateVoucherStatus, generateVouchersAndQRCodes, getPendingDistribution, getSingleCustomerForDistribution } from './services/database.js';
 import { generateThumbnail } from './services/thumbnailService.js';
 import { distributeToDrive } from './services/googleDriveService.js';
 import { sendLinkToMapper } from './services/apiService.js';
+import { processDistributionForCustomer } from './services/distributionService.js';
 import started from 'electron-squirrel-startup';
 import chokidar from 'chokidar';
 
@@ -143,13 +144,31 @@ app.whenReady().then(() => {
 
   ipcMain.handle('update-voucher-status', (event, data) => { return updateVoucherStatus(data); });
 
-  ipcMain.handle('get-exported-files-for-customer', (event, data) => {
-    return getExportedFilesForCustomer(data);
-  });
+  ipcMain.handle('get-exported-files-for-customer', (event, data) => { return getExportedFilesForCustomer(data); });
 
   ipcMain.handle('get-setting', (event, key) => getSetting(key));
 
   ipcMain.handle('save-setting', (event, data) => saveSetting(data));
+
+  ipcMain.handle('batch-distribute-all', async (event) => {
+    const pendingJobs = getPendingDistribution();
+    const totalJobs = pendingJobs.length;
+    let successes = 0;
+
+    for (let i = 0; i < totalJobs; i++) {
+      const job = pendingJobs[i];
+      const result = await processDistributionForCustomer(job, (message) => {
+        event.sender.send('batch-progress-update', { current: i + 1, total: totalJobs, name: message });
+      });
+      if (result.success) successes++;
+    }
+    return { success: true, successes, total: totalJobs };
+  });
+
+  ipcMain.handle('distribute-single-customer', async (event, customerId) => {
+    const jobData = getSingleCustomerForDistribution(customerId);
+    return processDistributionForCustomer(jobData);
+  });
 
   ipcMain.on('start-watching', (event, projectPath) => {
     const rawFolderPath = path.join(projectPath, 'raw');

@@ -697,6 +697,33 @@ function updateVoucherStatus({ voucherId, status, link = null }) {
   return { success: true };
 }
 
+function getPendingDistribution() {
+  const stmt = db.prepare(`
+    SELECT 
+      c.id, c.name, c.exported_file_path,
+      v.id as voucherId, v.code as voucherCode,
+      p.name as projectName, p.folder_path as projectPath, p.event_date as eventDate
+    FROM customers c
+    JOIN vouchers v ON c.voucher_id = v.id
+    JOIN projects p ON v.project_id = p.id
+    WHERE c.export_status = 'exported' AND v.distribution_status in ('pending', 'exported', 'failed')
+  `);
+  return stmt.all();
+}
+
+function getSingleCustomerForDistribution(customerId) {
+  // This is the same query as getPendingDistribution but for a single customer
+  const stmt = db.prepare(` SELECT 
+      c.id, c.name, c.exported_file_path,
+      v.id as voucherId, v.code as voucherCode,
+      p.name as projectName, p.folder_path as projectPath, p.event_date as eventDate
+    FROM customers c
+    JOIN vouchers v ON c.voucher_id = v.id
+    JOIN projects p ON v.project_id = p.id
+    WHERE c.id = ? AND c.export_status = 'exported' AND v.distribution_status in ('pending', 'exported', 'failed')`);
+  return stmt.get(customerId);
+}
+
 // Export the database instance and the setup function using ES Module syntax
 export {
   db,
@@ -722,5 +749,7 @@ export {
   setVoucherDistributed,
   getExportedFilesForCustomer,
   updateVoucherStatus,
-  generateVouchersAndQRCodes
+  generateVouchersAndQRCodes,
+  getPendingDistribution,
+  getSingleCustomerForDistribution
 };

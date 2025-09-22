@@ -149,56 +149,15 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
   };
 
   const handleDistribute = async (customer) => {
-    alert('Finding all exported files and starting distribution...');
+    alert('Starting distribution process...');
+    const result = await window.api.distributeSingleCustomer(customer.id);
 
-    // Get ALL exported files for this customer
-    const filePaths = await window.api.getExportedFilesForCustomer({
-      projectPath: project.folder_path,
-      voucherCode: customer.voucherCode,
-    });
-
-    if (filePaths.length === 0 && customer.export_status !== 'exported') {
-      alert('Error: No exported files found for this customer.');
-      return;
-    }
-
-    try {
-      let driveLink = customer.drive_link;
-
-      // Upload ALL found files to Google Drive
-      if (customer.distribution_status !== 'uploaded' && customer.distribution_status !== 'mapped') {
-        alert('Uploading to Google Drive...');
-        const driveResult = await window.api.distributeToDrive({
-          filePaths: filePaths,
-          projectName: project.name,
-          voucherCode: customer.voucherCode,
-          eventDate: project.event_date,
-        });
-        if (!driveResult.success) throw new Error(driveResult.error);
-
-        driveLink = driveResult.link;
-        await window.api.updateVoucherStatus({ voucherId: customer.voucherId, status: 'uploaded', link: driveLink });
-        fetchCustomers();
-      }
-
-      console.log('Sending link to mapping service...');
-      const mapperResult = await window.api.sendLinkToMapper({
-        voucherCode: customer.voucherCode,
-        driveLink: driveLink,
-      });
-
-      if (!mapperResult.success) throw new Error(mapperResult.error);
-
-      await window.api.updateVoucherStatus({ voucherId: customer.voucherId, status: 'distributed' });
+    if (result.success) {
       fetchCustomers();
-
-      alert(`Distribution complete! Link successfully mapped.`);
-
-    } catch (error) {
-      // If any step fails, mark it as 'failed'
-      await window.api.updateVoucherStatus({ voucherId: customer.voucherId, status: 'failed' });
+      alert(`Distribution complete for ${customer.name}!`);
+    } else {
       fetchCustomers();
-      alert(`Distribution failed: ${error.message}`);
+      alert(`Distribution failed: ${result.error}`);
     }
   };
 
