@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('api', {
 
     // Customer & Voucher Management
     generateVouchersForProject: (data) => ipcRenderer.invoke('generate-vouchers-for-project', data),
+    generateVouchersAndQRCodes: (data) => ipcRenderer.invoke('generate-vouchers-and-qr', data),
     getCustomersByProjectId: (id) => ipcRenderer.invoke('get-customers-by-project-id', id),
     findVoucherByCode: (data) => ipcRenderer.invoke('find-voucher-by-code', data),
     redeemVoucher: (data) => ipcRenderer.invoke('redeem-voucher', data),
@@ -44,4 +45,8 @@ contextBridge.exposeInMainWorld('api', {
     // API
     distributeToDrive: (data) => ipcRenderer.invoke('distribute-to-drive', data),
     sendLinkToMapper: (data) => ipcRenderer.invoke('send-link-to-mapper', data),
+    
+    // Apps Settings
+    getSetting: (data) => ipcRenderer.invoke('get-setting', data),
+    saveSetting: (data) => ipcRenderer.invoke('save-setting', data),
 });

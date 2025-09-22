@@ -37,10 +37,10 @@ function ProjectDashboard({ onProjectSelect }) {
     }
   };
 
-   const handleGenerateVouchers = async (projectId, quantity) => {
-    const result = await window.api.generateVouchersForProject({ projectId, quantity });
+  const handleGenerateVouchers = async (projectId, quantity) => {
+    const result = await window.api.generateVouchersAndQRCodes({ projectId, quantity });
     if (result.success) {
-      alert(`${result.count} vouchers generated successfully!`);
+      alert(`${result.count} vouchers and QR codes generated successfully!`);
     } else {
       alert(`Error: ${result.error}`);
     }
@@ -61,7 +61,7 @@ function ProjectDashboard({ onProjectSelect }) {
         onSave={handleSaveTemplates}
       />
 
-       <GenerateVouchersModal
+      <GenerateVouchersModal
         project={selectedProjectForVouchers}
         onClose={() => setSelectedProjectForVouchers(null)}
         onGenerate={handleGenerateVouchers}
@@ -80,18 +80,27 @@ function ProjectDashboard({ onProjectSelect }) {
               <h3>{project.name}</h3>
               <p>{project.event_date}</p>
             </div>
-            <button 
+            <button
               className="btn-secondary btn-small"
               onClick={() => setSelectedProject(project)}
             >
               Manage Templates
             </button>
             <button
-                className="btn-secondary btn-small"
-                onClick={() => setSelectedProjectForVouchers(project)}
-              >
-                Generate Vouchers
-              </button>
+              className="btn-secondary btn-small"
+              onClick={() => setSelectedProjectForVouchers(project)}
+            >
+              Generate Vouchers
+            </button>
+            <button
+              className="btn-secondary btn-small"
+              onClick={() => window.api.openFolder({
+                basePath: project.folder_path,
+                subfolder: 'qrcodes'
+              })}
+            >
+              View QR Codes
+            </button>
           </div>
         ))}
       </div>

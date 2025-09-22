@@ -3,6 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
 import sharp from 'sharp';
+import QRCode from 'qrcode'; 
+import { getSetting } from './settingsService.js';
 
 // Define the path for our database file.
 const dbPath = path.resolve(app.getPath('userData'), 'tigaduabooth.db');
@@ -26,6 +28,7 @@ function initializeDatabase() {
       status TEXT NOT NULL DEFAULT 'available',
       distribution_status TEXT DEFAULT 'pending',
       drive_link TEXT,
+      qr_code_path TEXT,
       FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
     );
 
@@ -75,6 +78,7 @@ function initializeDatabase() {
   // db.prepare("ALTER TABLE customers ADD COLUMN exported_file_path TEXT").run();
   // db.prepare("ALTER TABLE vouchers ADD COLUMN distribution_status TEXT DEFAULT 'pending'").run();
   // db.prepare("ALTER TABLE vouchers ADD COLUMN drive_link TEXT").run();
+  // db.prepare("ALTER TABLE vouchers ADD COLUMN qr_code_path TEXT").run();
 
   seedTemplates();
 
@@ -266,6 +270,44 @@ function generateVouchersForProject({ projectId, quantity }) {
     return { success: true, count: quantity };
   } catch (error) {
     console.error('Failed to generate vouchers:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+async function generateVouchersAndQRCodes({ projectId, quantity }) {
+  try {
+    const project = db.prepare('SELECT folder_path FROM projects WHERE id = ?').get(projectId);
+    if (!project) throw new Error('Project not found');
+
+    const qrCodeBaseUrl = getSetting('qrCodeBaseUrl');
+    if (!qrCodeBaseUrl) throw new Error('QR Code Base URL is not set in Settings.');
+
+    const qrCodeFolderPath = path.join(project.folder_path, 'qrcodes');
+    if (!fs.existsSync(qrCodeFolderPath)) {
+      fs.mkdirSync(qrCodeFolderPath, { recursive: true });
+    }
+
+    const insertStmt = db.prepare(
+      'INSERT INTO vouchers (project_id, code, qr_code_path) VALUES (?, ?, ?)'
+    );
+
+    const generateTransaction = db.transaction(() => {
+      for (let i = 0; i < quantity; i++) {
+        const code = generateVoucherCode(); // Assumes your helper function exists
+        const fullUrl = `${qrCodeBaseUrl}${code}`;
+        const qrCodePath = path.join(qrCodeFolderPath, `${code}.png`);
+
+        QRCode.toFile(qrCodePath, fullUrl); // Asynchronously generate and save the QR code
+
+        insertStmt.run(projectId, code, qrCodePath);
+      }
+    });
+
+    generateTransaction();
+    console.log(`Successfully generated ${quantity} vouchers and QR codes.`);
+    return { success: true, count: quantity };
+  } catch (error) {
+    console.error('Failed to generate vouchers and QR codes:', error);
     return { success: false, error: error.message };
   }
 }
@@ -679,5 +721,6 @@ export {
   exportGridImage,
   setVoucherDistributed,
   getExportedFilesForCustomer,
-  updateVoucherStatus
+  updateVoucherStatus,
+  generateVouchersAndQRCodes
 };

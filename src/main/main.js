@@ -2,7 +2,8 @@ import 'dotenv/config';
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import path from 'node:path';
 import fs from 'fs';
-import { initializeDatabase, createProject, getProjects, getProjectById, findVoucherByCode, assignPhotosToCustomer, getCustomersByProjectId, getPhotosByCustomerId, revertPhotosToRaw, runHealthCheckForProject, saveCroppedImage, generateVouchersForProject, redeemVoucher, getEditedPhotosByCustomerId, getAllTemplates, createTemplate, setTemplatesForProject, getTemplatesForProject, exportGridImage, setVoucherDistributed, getExportedFilesForCustomer, updateVoucherStatus } from './services/database.js';
+import { getSetting, saveSetting } from './services/settingsService.js';
+import { initializeDatabase, createProject, getProjects, getProjectById, findVoucherByCode, assignPhotosToCustomer, getCustomersByProjectId, getPhotosByCustomerId, revertPhotosToRaw, runHealthCheckForProject, saveCroppedImage, generateVouchersForProject, redeemVoucher, getEditedPhotosByCustomerId, getAllTemplates, createTemplate, setTemplatesForProject, getTemplatesForProject, exportGridImage, setVoucherDistributed, getExportedFilesForCustomer, updateVoucherStatus, generateVouchersAndQRCodes } from './services/database.js';
 import { generateThumbnail } from './services/thumbnailService.js';
 import { distributeToDrive } from './services/googleDriveService.js';
 import { sendLinkToMapper } from './services/apiService.js';
@@ -74,6 +75,10 @@ app.whenReady().then(() => {
     return generateVouchersForProject(data);
   });
 
+  ipcMain.handle('generate-vouchers-and-qr', async (event, data) => {
+    return generateVouchersAndQRCodes(data);
+  });
+
   ipcMain.handle('redeem-voucher', async (event, data) => {
     return redeemVoucher(data);
   });
@@ -130,17 +135,21 @@ app.whenReady().then(() => {
 
   ipcMain.handle('set-templates-for-project', (event, data) => setTemplatesForProject(data));
 
-  ipcMain.handle('distribute-to-drive', async (event, data) => {return distributeToDrive(data);});
+  ipcMain.handle('distribute-to-drive', async (event, data) => { return distributeToDrive(data); });
 
-  ipcMain.handle('send-link-to-mapper', async (event, data) => {return sendLinkToMapper(data);});
+  ipcMain.handle('send-link-to-mapper', async (event, data) => { return sendLinkToMapper(data); });
 
-  ipcMain.handle('set-voucher-distributed', (event, data) => {return setVoucherDistributed(data);});
-  
-  ipcMain.handle('update-voucher-status', (event, data) => {return updateVoucherStatus(data);});
+  ipcMain.handle('set-voucher-distributed', (event, data) => { return setVoucherDistributed(data); });
+
+  ipcMain.handle('update-voucher-status', (event, data) => { return updateVoucherStatus(data); });
 
   ipcMain.handle('get-exported-files-for-customer', (event, data) => {
     return getExportedFilesForCustomer(data);
   });
+
+  ipcMain.handle('get-setting', (event, key) => getSetting(key));
+
+  ipcMain.handle('save-setting', (event, data) => saveSetting(data));
 
   ipcMain.on('start-watching', (event, projectPath) => {
     const rawFolderPath = path.join(projectPath, 'raw');

@@ -673,11 +673,19 @@ html,
   /* Show on hover */
 }
 
-.template-manager {
+.template-manager, .settings-container {
   display: flex;
   flex-direction: column;
   height: 100%;
 }
+
+.setting-item { margin: 20px 0; }
+
+.setting-item label { font-weight: bold; font-size: 1.2em; } 
+
+.setting-item p { color: #a0a0a0; margin: 5px 0 10px 0; }
+
+.setting-item input { width: 100%; padding: 8px; }
 
 .manager-header {
   display: flex;

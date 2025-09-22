@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
+import Settings from './components/Settings';
 import ProjectDashboard from './components/ProjectDashboard';
 import EventWorkspace from './components/EventWorkspace';
 import GridCreator from './components/GridCreator';
@@ -44,7 +45,7 @@ function App() {
             >
               Template Manager
             </li>
-            <li className="disabled-nav">Settings</li>
+            <li className={currentView === 'settings' ? 'active-nav' : ''} onClick={() => setCurrentView('settings')}>Settings</li>
           </ul>
         </nav>
       </div>
@@ -68,6 +69,9 @@ function App() {
         )}
         {currentView === 'templates' && (
           <TemplateManager onBack={navigateToDashboard} />
+        )}
+        {currentView === 'settings' && (
+          <Settings onBack={navigateToDashboard} />
         )}
       </main>
     </div>
