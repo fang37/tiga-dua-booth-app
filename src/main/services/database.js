@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
 import sharp from 'sharp';
-import QRCode from 'qrcode'; 
+import QRCode from 'qrcode';
 import { getSetting } from './settingsService.js';
 
 // Define the path for our database file.
@@ -568,7 +568,7 @@ async function exportGridImage({ projectPath, imagePaths, template, customerId }
       fs.mkdirSync(finalFolderPath, { recursive: true });
     }
 
-     // 1. Get the customer's voucher code
+    // 1. Get the customer's voucher code
     const customerInfo = db.prepare(`
       SELECT v.code as voucherCode 
       FROM customers c JOIN vouchers v ON c.voucher_id = v.id 
@@ -663,7 +663,7 @@ async function exportGridImage({ projectPath, imagePaths, template, customerId }
 
 function setVoucherDistributed({ voucherId, link }) {
   return db.prepare("UPDATE vouchers SET distribution_status = 'distributed', drive_link = ? WHERE id = ?")
-           .run(link, voucherId);
+    .run(link, voucherId);
 }
 
 // This function finds all files in the /final folder for a specific voucher
@@ -676,7 +676,7 @@ function getExportedFilesForCustomer({ projectPath, voucherCode }) {
     const customerFiles = allFiles
       .filter(file => file.startsWith(voucherCode + '-'))
       .map(file => path.join(finalFolderPath, file));
-      
+
     return customerFiles;
   } catch (error) {
     console.error('Failed to find exported files:', error);
@@ -697,18 +697,22 @@ function updateVoucherStatus({ voucherId, status, link = null }) {
   return { success: true };
 }
 
-function getPendingDistribution() {
+function getPendingDistribution(projectId) {
   const stmt = db.prepare(`
     SELECT 
       c.id, c.name, c.exported_file_path,
       v.id as voucherId, v.code as voucherCode,
-      p.name as projectName, p.folder_path as projectPath, p.event_date as eventDate
+      p.name as projectName, p.folder_path as projectPath, p.event_date as eventDate,
+      v.drive_link
     FROM customers c
     JOIN vouchers v ON c.voucher_id = v.id
     JOIN projects p ON v.project_id = p.id
-    WHERE c.export_status = 'exported' AND v.distribution_status in ('pending', 'exported', 'failed')
+    WHERE
+      c.export_status = 'exported' AND
+      v.distribution_status in ('pending', 'exported', 'failed') AND
+      v.project_id = ?
   `);
-  return stmt.all();
+  return stmt.all(projectId);
 }
 
 function getSingleCustomerForDistribution(customerId) {

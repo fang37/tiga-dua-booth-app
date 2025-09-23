@@ -45,7 +45,7 @@ contextBridge.exposeInMainWorld('api', {
     // API
     distributeToDrive: (data) => ipcRenderer.invoke('distribute-to-drive', data),
     sendLinkToMapper: (data) => ipcRenderer.invoke('send-link-to-mapper', data),
-    batchDistributeAll: () => ipcRenderer.invoke('batch-distribute-all'),
+    batchDistributeAll: (data) => ipcRenderer.invoke('batch-distribute-all', data),
     distributeSingleCustomer: (customerId) => ipcRenderer.invoke('distribute-single-customer', customerId),
     onBatchProgress: (callback) => {
         const channel = 'batch-progress-update';

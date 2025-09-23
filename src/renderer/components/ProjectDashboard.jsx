@@ -2,14 +2,12 @@ import React, { useState, useEffect } from 'react';
 import NewProjectModal from './NewProjectModal';
 import ProjectTemplatesModal from './ProjectTemplatesModal';
 import GenerateVouchersModal from './GenerateVouchersModal';
-import BatchDistributeModal from './BatchDistributeModal';
 
 function ProjectDashboard({ onProjectSelect }) {
   const [projects, setProjects] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedProjectForVouchers, setSelectedProjectForVouchers] = useState(null);
-  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
 
   // Function to fetch projects and update state
   const fetchProjects = async () => {
@@ -69,13 +67,8 @@ function ProjectDashboard({ onProjectSelect }) {
         onGenerate={handleGenerateVouchers}
       />
 
-      <BatchDistributeModal isOpen={isBatchModalOpen} onClose={() => setIsBatchModalOpen(false)} />
-
       <div className="dashboard-header">
         <h1>Projects</h1>
-        <button className="btn-secondary" onClick={() => setIsBatchModalOpen(true)}>
-          Batch Distribute All
-        </button>
         <button className="btn-primary" onClick={() => setIsModalOpen(true)}>
           New Project
         </button>

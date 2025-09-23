@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PhotoPreviewModal from './PhotoPreviewModal';
 import path from 'path';
+import BatchDistributeModal from './BatchDistributeModal';
 
 function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
   const [project, setProject] = useState(null);
@@ -19,6 +20,8 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
   const [selectedPhotos, setSelectedPhotos] = useState(new Set());
   const [previewPhoto, setPreviewPhoto] = useState(null);
   const [pinnedPhoto, setPinnedPhoto] = useState(null);
+
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
 
   const fetchCustomers = async () => {
     const customers = await window.api.getCustomersByProjectId(projectId);
@@ -50,6 +53,13 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
 
     loadProjectAndStartWatcher();
 
+    const handleDataChanged = () => {
+      console.log('Data changed event received, refreshing customer list...');
+      fetchCustomers();
+    };
+
+    document.addEventListener('data-changed', handleDataChanged);
+
     loadData()
 
     // Listen for new photos from the main process
@@ -64,6 +74,7 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
     // Cleanup function: stop watching when the component is unmounted
     return () => {
       window.api.stopWatching();
+      document.removeEventListener('data-changed', handleDataChanged);
     };
   }, [projectId]);
 
@@ -174,6 +185,7 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
 
   return (
     <div className="workspace-container">
+      <BatchDistributeModal isOpen={isBatchModalOpen} onClose={() => setIsBatchModalOpen(false)} projectId={projectId} />
       <PhotoPreviewModal
         customer={previewCustomer}
         project={project}
@@ -184,177 +196,185 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
         onDistribute={handleDistribute}
       />
 
-      <div className="workspace-main">
-        <div className="check-in-panel">
-          <button className="btn-secondary back-btn" onClick={onBack}>
-            &larr; Back to Projects
-          </button>
+      <div className="workspace-header">
+        <button className="btn-secondary" onClick={onBack}>
+          &larr; Back to Projects
+        </button>
+        <h1>{project.name}</h1>
+        <button className="btn-primary" onClick={() => setIsBatchModalOpen(true)}>
+          Batch Distribute
+        </button>
+      </div>
 
-          <div className="check-in-header">
-            <h3>Customer Check-in</h3>
+      <div className="workspace-main-content">
+        <div className="workspace-left-col">
+          <div className="check-in-panel">
+            <div className="panel-header">
+              <h3>Customer Check-in</h3>
+            </div>
             {foundVoucher && (
               <button className="btn-secondary btn-small" onClick={() => setFoundVoucher(null)}>
                 Cancel
               </button>
             )}
+            {/* This part shows before a voucher is found */}
+            {!foundVoucher && (
+              <div className="find-voucher-form">
+                <input
+                  type="text"
+                  placeholder="Enter Voucher Code..."
+                  className="voucher-input"
+                  value={voucherCode}
+                  onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
+                  autoFocus
+                />
+                <button className="btn-primary" onClick={handleFindVoucher}>Find Voucher</button>
+              </div>
+            )}
+
+            {/* This part appears only AFTER a valid voucher is found */}
+            {foundVoucher && (
+              <div className="registration-form">
+                <p>Voucher Found: <strong>{foundVoucher.code}</strong></p>
+                <label htmlFor="customerName">Customer Name</label>
+                <input
+                  id="customerName"
+                  type="text"
+                  className="modal-input"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Full Name"
+                  autoFocus
+                />
+                <label htmlFor="customerEmail">Email (Optional)</label>
+                <input
+                  id="customerEmail"
+                  type="email"
+                  className="modal-input"
+                  value={customerEmail}
+                  onChange={(e) => setCustomerEmail(e.target.value)}
+                  placeholder="example@email.com"
+                />
+                <label htmlFor="customerPhone">Phone Number (Optional)</label>
+                <input
+                  id="customerPhone"
+                  type="tel"
+                  className="modal-input"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  placeholder="08123456789"
+                />
+                <button className="btn-primary" onClick={handleRedeemVoucher}>Complete Registration</button>
+              </div>
+            )}
           </div>
 
-          {/* This part shows before a voucher is found */}
-          {!foundVoucher && (
-            <div className="find-voucher-form">
-              <input
-                type="text"
-                placeholder="Enter Voucher Code..."
-                className="voucher-input"
-                value={voucherCode}
-                onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
-                autoFocus
-              />
-              <button className="btn-primary" onClick={handleFindVoucher}>Find Voucher</button>
+          <div className="unassigned-photos-panel">
+            <div className="panel-header">
+              <h3>Unassigned Photos ({unassignedPhotos.length})</h3>
+              <button
+                className="btn-icon"
+                title="Open Raw Photos Folder"
+                onClick={() => window.api.openFolder({
+                  basePath: project.folder_path,
+                  subfolder: 'raw'
+                })}
+              >
+                📁
+              </button>
             </div>
-          )}
-
-          {/* This part appears only AFTER a valid voucher is found */}
-          {foundVoucher && (
-            <div className="registration-form">
-              <p>Voucher Found: <strong>{foundVoucher.code}</strong></p>
-              <label htmlFor="customerName">Customer Name</label>
-              <input
-                id="customerName"
-                type="text"
-                className="modal-input"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="Full Name"
-                autoFocus
-              />
-              <label htmlFor="customerEmail">Email (Optional)</label>
-              <input
-                id="customerEmail"
-                type="email"
-                className="modal-input"
-                value={customerEmail}
-                onChange={(e) => setCustomerEmail(e.target.value)}
-                placeholder="example@email.com"
-              />
-              <label htmlFor="customerPhone">Phone Number (Optional)</label>
-              <input
-                id="customerPhone"
-                type="tel"
-                className="modal-input"
-                value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
-                placeholder="08123456789"
-              />
-              <button className="btn-primary" onClick={handleRedeemVoucher}>Complete Registration</button>
+            <div className="unassigned-content">
+              <div className="photo-queue">
+                {unassignedPhotos.map(photo => (
+                  <div
+                    key={photo.rawPath}
+                    className={`photo-thumbnail ${selectedPhotos.has(photo) ? 'selected' : ''}`}
+                    onClick={() => handleTogglePhotoSelection(photo)}
+                    onMouseEnter={() => setPreviewPhoto(photo.rawPath)}
+                    onMouseLeave={() => setPreviewPhoto(null)}
+                  >
+                    <img src={`file://${photo.thumbPath}`} alt="thumbnail" />
+                  </div>
+                ))}
+              </div>
+              <div className="photo-preview-area">
+                {photoToShow ? (
+                  <img src={`file://${photoToShow}`} alt="Preview" />
+                ) : (
+                  <div className="preview-placeholder">
+                    <p>Hover or click a thumbnail to preview</p>
+                  </div>
+                )}
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
-        <div className="unassigned-photos-panel">
-          <div className="panel-header">
-            <h3>Unassigned Photos ({unassignedPhotos.length})</h3>
-            <button
-              className="btn-icon"
-              title="Open Raw Photos Folder"
-              onClick={() => window.api.openFolder({
-                basePath: project.folder_path,
-                subfolder: 'raw'
-              })}
-            >
-              📁
-            </button>
-          </div>
-          <div className="unassigned-content">
-            <div className="photo-queue">
-              {unassignedPhotos.map(photo => (
-                <div
-                  key={photo.rawPath}
-                  className={`photo-thumbnail ${selectedPhotos.has(photo) ? 'selected' : ''}`}
-                  onClick={() => handleTogglePhotoSelection(photo)}
-                  onMouseEnter={() => setPreviewPhoto(photo.rawPath)}
-                  onMouseLeave={() => setPreviewPhoto(null)}
+
+        <div className="workspace-sidebar">
+          <div className="active-customer-panel">
+            <h3>Active Customer</h3>
+            <h3>x</h3>
+            {activeCustomer ? (
+              <>
+                <p><strong>Name:</strong> {activeCustomer.name}</p>
+                <p><strong>Voucher:</strong> {activeCustomer.voucherCode}</p>
+                <button
+                  className="btn-primary assign-btn"
+                  onClick={handleAssignPhotos}
+                  disabled={selectedPhotos.size === 0}
                 >
-                  <img src={`file://${photo.thumbPath}`} alt="thumbnail" />
-                </div>
-              ))}
+                  Assign {selectedPhotos.size} Photos to {activeCustomer.name.split(' ')[0]}
+                </button>
+              </>
+            ) : (
+              <p>No customer active. Check in a customer to begin.</p>
+            )}
+          </div>
+
+          <div className="customer-list-panel">
+            <div className="panel-header">
+              <h3>Project Customers</h3>
+              <button className="btn-secondary btn-small" onClick={fetchCustomers}>Refresh</button>
             </div>
-            <div className="photo-preview-area">
-              {photoToShow ? (
-                <img src={`file://${photoToShow}`} alt="Preview" />
+
+            <input
+              type="text"
+              placeholder="Search by name or code..."
+              className="search-input"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+
+            <div className="customer-list-scroll">
+              {filteredCustomers.length > 0 ? (
+                // 4. Map over the NEW filteredCustomers array
+                filteredCustomers.map(cust => (
+                  <div
+                    key={cust.id}
+                    className="customer-list-item"
+                    onClick={() => setPreviewCustomer(cust)}
+                  >
+                    <div className="customer-info">
+                      <p><strong>{cust.name}</strong></p>
+                      <span>{cust.voucherCode}</span>
+                    </div>
+                    <div className="customer-badges">
+                      {cust.distribution_status === 'distributed' && <span className="badge distributed">✔ Distributed</span>}
+                      {cust.distribution_status === 'uploaded' && <span className="badge uploaded">✔ Uploaded</span>}
+                      {cust.distribution_status === 'failed' && <span className="badge failed">✖ Failed</span>}
+                      {cust.export_status === 'exported' && (cust.distribution_status === 'pending' || cust.distribution_status === 'exported') && <span className="badge exported">✔ Exported</span>}
+                      <div className="photo-count">{cust.photoCount}</div>
+                    </div>
+                  </div>
+                ))
               ) : (
-                <div className="preview-placeholder">
-                  <p>Hover or click a thumbnail to preview</p>
-                </div>
+                <p className="muted-text">No customers found.</p>
               )}
             </div>
           </div>
+
         </div>
-      </div>
-
-      <div className="workspace-sidebar">
-        <div className="active-customer-panel">
-          <h3>Active Customer</h3>
-          <h3>x</h3>
-          {activeCustomer ? (
-            <>
-              <p><strong>Name:</strong> {activeCustomer.name}</p>
-              <p><strong>Voucher:</strong> {activeCustomer.voucherCode}</p>
-              <button
-                className="btn-primary assign-btn"
-                onClick={handleAssignPhotos}
-                disabled={selectedPhotos.size === 0}
-              >
-                Assign {selectedPhotos.size} Photos to {activeCustomer.name.split(' ')[0]}
-              </button>
-            </>
-          ) : (
-            <p>No customer active. Check in a customer to begin.</p>
-          )}
-        </div>
-
-        <div className="customer-list-panel">
-          <div className="panel-header">
-            <h3>Project Customers</h3>
-            <button className="btn-secondary btn-small" onClick={fetchCustomers}>Refresh</button>
-          </div>
-
-          <input
-            type="text"
-            placeholder="Search by name or code..."
-            className="search-input"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-
-          <div className="customer-list-scroll">
-            {filteredCustomers.length > 0 ? (
-              // 4. Map over the NEW filteredCustomers array
-              filteredCustomers.map(cust => (
-                <div
-                  key={cust.id}
-                  className="customer-list-item"
-                  onClick={() => setPreviewCustomer(cust)}
-                >
-                  <div className="customer-info">
-                    <p><strong>{cust.name}</strong></p>
-                    <span>{cust.voucherCode}</span>
-                  </div>
-                  <div className="customer-badges">
-                    {cust.distribution_status === 'distributed' && <span className="badge distributed">✔ Distributed</span>}
-                    {cust.distribution_status === 'uploaded' && <span className="badge uploaded">✔ Uploaded</span>}
-                    {cust.distribution_status === 'failed' && <span className="badge failed">✖ Failed</span>}
-                    {cust.export_status === 'exported' && (cust.distribution_status === 'pending' || cust.distribution_status === 'exported') && <span className="badge exported">✔ Exported</span>}
-                    <div className="photo-count">{cust.photoCount}</div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="muted-text">No customers found.</p>
-            )}
-          </div>
-        </div>
-
       </div>
     </div>
   );

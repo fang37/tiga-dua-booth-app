@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-function BatchDistributeModal({ isOpen, onClose }) {
+function BatchDistributeModal({ isOpen, onClose, projectId }) {
   const [progress, setProgress] = useState(null);
   const [summary, setSummary] = useState(null);
 
@@ -12,8 +12,10 @@ function BatchDistributeModal({ isOpen, onClose }) {
 
       console.log('[Batch Modal] Modal is open. Calling batchDistributeAll backend function...');
 
-      window.api.batchDistributeAll().then(result => {
+      window.api.batchDistributeAll(projectId).then(result => {
         setSummary(`Complete! ${result.successes} of ${result.total} jobs succeeded.`);
+        
+        document.dispatchEvent(new CustomEvent('data-changed'));
       });
     }
 
@@ -33,7 +35,7 @@ function BatchDistributeModal({ isOpen, onClose }) {
         cleanupListener();
       }
     };
-  }, [isOpen]);
+  }, [isOpen, projectId]);
 
   if (!isOpen) return null;
 

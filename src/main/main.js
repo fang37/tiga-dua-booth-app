@@ -150,8 +150,8 @@ app.whenReady().then(() => {
 
   ipcMain.handle('save-setting', (event, data) => saveSetting(data));
 
-  ipcMain.handle('batch-distribute-all', async (event) => {
-    const pendingJobs = getPendingDistribution();
+  ipcMain.handle('batch-distribute-all', async (event, projectId) => {
+    const pendingJobs = getPendingDistribution(projectId);
     const totalJobs = pendingJobs.length;
     let successes = 0;
 
