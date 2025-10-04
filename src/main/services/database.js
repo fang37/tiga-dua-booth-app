@@ -520,13 +520,38 @@ function getAllTemplates() {
   return db.prepare('SELECT * FROM templates ORDER BY name').all();
 }
 
-function createTemplate({ name, layout_config, background_color, watermark_path, watermark_opacity }) {
-  const stmt = db.prepare(`
-    INSERT INTO templates (name, layout_config, background_color, watermark_path, watermark_opacity)
-    VALUES (?, ?, ?, ?, ?)
-  `);
-  const info = stmt.run(name, JSON.stringify(layout_config), background_color, watermark_path, watermark_opacity);
-  return { success: true, id: info.lastInsertRowid };
+function createTemplate({ name, layout_config, background_color}) {
+  const transaction = db.transaction(() => {
+    const insertStmt = db.prepare('INSERT INTO templates (name, layout_config, background_color) VALUES (?, ?, ?)');
+    const info = insertStmt.run(name, JSON.stringify(layout_config), background_color);
+    const newTemplateId = info.lastInsertRowid;
+
+    if (layout_config.watermark && layout_config.watermark.path) {
+      const sourcePath = layout_config.watermark.path;
+      const templateAssetsDir = path.join(app.getPath('userData'), 'template_assets', String(newTemplateId));
+      if (!fs.existsSync(templateAssetsDir)) {
+        fs.mkdirSync(templateAssetsDir, { recursive: true });
+      }
+
+      const destFileName = `watermark${path.extname(sourcePath)}`;
+      const destPath = path.join(templateAssetsDir, destFileName);
+      fs.copyFileSync(sourcePath, destPath);
+
+      // Step 3: Update the template record with the new, safe path
+      layout_config.watermark.path = destPath; // Update the path in the config object
+      const updateStmt = db.prepare('UPDATE templates SET layout_config = ? WHERE id = ?');
+      updateStmt.run(JSON.stringify(layout_config), newTemplateId);
+    }
+
+    return { success: true, id: newTemplateId };
+  });
+
+  try {
+    return transaction();
+  } catch (error) {
+    console.error("Failed to create template:", error);
+    return { success: false, error: error.message };
+  }
 }
 
 function setTemplatesForProject({ projectId, templateIds }) {
@@ -669,7 +694,7 @@ async function exportGridImage({ projectPath, imagePaths, template, customerId }
       .jpeg({ quality: 95 })
       .withMetadata({ density: DPI })
       .toFile(outputPath);
-      
+
     db.prepare("UPDATE customers SET export_status = 'exported', exported_file_path = ? WHERE id = ?")
       .run(outputPath, customerId);
 
