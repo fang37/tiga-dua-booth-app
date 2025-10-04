@@ -36,13 +36,23 @@ function GridCreator({ customer, projectId, onBack }) {
   const [cropImage, setCropImage] = useState(null);
   const [firstSelectedIndex, setFirstSelectedIndex] = useState(null);
 
+  const [overlayPreviewData, setOverlayPreviewData] = useState(null);
+  const [watermarkPreviewData, setWatermarkPreviewData] = useState(null);
+
   const loadData = async () => {
     if (customer) {
       const projectDetails = await window.api.getProjectById(projectId);
       setProject(projectDetails);
 
-      const photos = await window.api.getEditedPhotos(customer.id);
-      setEditedPhotos(photos);
+      const photoPaths = await window.api.getEditedPhotos(customer.id);
+      // Fetch Base64 data for each edited photo
+      const photosWithData = await Promise.all(
+        photoPaths.map(async (path) => ({
+          originalPath: path,
+          base64Data: await window.api.getPhotoAsBase64(path)
+        }))
+      );
+      setEditedPhotos(photosWithData);
     }
 
     // Fetch only the templates enabled for this project
@@ -66,11 +76,26 @@ function GridCreator({ customer, projectId, onBack }) {
     });
   }, [projectId, customer]);
 
-  const handleSelectTemplate = (template) => {
+  const handleSelectTemplate = async (template) => {
     setSelectedTemplate(template);
     const config = JSON.parse(template.layout_config);
     setGridSlots(Array(config.rows * config.cols).fill(null));
     setFirstSelectedIndex(null);
+
+    // Fetch the overlay Base64 data when a template is selected
+    if (template.overlay_image_path) {
+      const data = await window.api.getPhotoAsBase64(template.overlay_image_path);
+      setOverlayPreviewData(data);
+    } else {
+      setOverlayPreviewData(null);
+    }
+
+    if (config.watermark?.path) {
+      const watermarkData = await window.api.getPhotoAsBase64(config.watermark.path);
+      setWatermarkPreviewData(watermarkData);
+    } else {
+      setWatermarkPreviewData(null);
+    }
   };
 
   const getLayoutConfig = () => {
@@ -87,8 +112,15 @@ function GridCreator({ customer, projectId, onBack }) {
     return selectedTemplate.background_color;
   };
 
-  const handleOpenCropper = (photoPath, gridIndex = null) => {
-    setCropImage({ path: photoPath, index: gridIndex });
+  const handleOpenCropper = async (photoPath, gridIndex = null) => {
+    const base64Data = await window.api.getPhotoAsBase64(photoPath);
+    if (base64Data) {
+      setCropImage({
+        path: photoPath, // Keep the original path for saving
+        base64Data: base64Data,    // The data for the cropper to display
+        index: gridIndex
+      });
+    }
   };
 
   const handleCropComplete = async (croppedImageData) => {
@@ -102,8 +134,9 @@ function GridCreator({ customer, projectId, onBack }) {
     if (result.success) {
       const newSlots = [...gridSlots];
       const newSlotData = {
-        originalPath: cropImage.path, 
+        originalPath: cropImage.path,
         croppedPath: result.filePath,
+        base64Data: croppedImageData,
       };
       if (cropImage.index !== null) {
         // Re-cropping an image already in a slot
@@ -209,7 +242,7 @@ function GridCreator({ customer, projectId, onBack }) {
 
     <div className="grid-creator-container">
       <CropModal
-        imageSrc={cropImage?.path}
+        imageSrc={cropImage}
         onClose={() => setCropImage(null)}
         onCrop={handleCropComplete}
         aspectRatio={layoutConfig?.crop_aspect_ratio}
@@ -242,9 +275,9 @@ function GridCreator({ customer, projectId, onBack }) {
             <div
               key={photo}
               className="edited-thumbnail"
-              onClick={() => handleOpenCropper(photo)}
+              onClick={() => handleOpenCropper(photo.originalPath)}
             >
-              <img src={`file://${photo}`} alt="Edited thumbnail" />
+              <img src={photo.base64Data} alt="Edited thumbnail" />
             </div>
           ))}
         </div>
@@ -270,29 +303,36 @@ function GridCreator({ customer, projectId, onBack }) {
               className="preview-box"
               style={previewStyle}
             >
-              {gridSlots.map((photoPath, index) => (
+              {gridSlots.map((slotData, index) => (
                 <div
                   key={index}
                   className={`grid-cell ${firstSelectedIndex === index ? 'selected-for-swap' : ''}`}
                   onClick={() => handleGridCellClick(index)}
-                  onDoubleClick={() => photoPath && handleOpenCropper(photoPath.originalPath, index)}
+                  onDoubleClick={() => slotData && handleOpenCropper(slotData.originalPath, index)}
                 >
-                  {photoPath ? <img src={`file://${photoPath.croppedPath}`} alt={`Slot ${index + 1}`} /> : <p>+</p>}
-                  <button 
-                      className="btn-delete-slot" 
-                      onClick={(e) => {
-                        e.stopPropagation(); // Prevents other clicks from firing
-                        handleDeleteFromSlot(index);
-                      }}
-                    >
-                      &times;
-                    </button>
+                  {slotData ? <img src={slotData.base64Data} alt={`Slot ${index + 1}`} /> : <p>+</p>}
+                  <button
+                    className="btn-delete-slot"
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevents other clicks from firing
+                      handleDeleteFromSlot(index);
+                    }}
+                  >
+                    &times;
+                  </button>
                 </div>
               ))}
+              {overlayPreviewData && (
+                <img
+                  src={overlayPreviewData}
+                  alt="Overlay Preview"
+                  className="overlay-preview-image"
+                />
+              )}
             </div>
-            {layoutConfig.watermark?.path && (
+            {watermarkPreviewData  && (
               <img
-                src={`file://${layoutConfig.watermark.path}`}
+                src={watermarkPreviewData }
                 alt="Watermark Preview"
                 className="watermark-preview"
                 style={watermarkPreviewStyle}

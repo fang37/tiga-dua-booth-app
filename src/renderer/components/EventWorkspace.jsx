@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import PhotoPreviewModal from './PhotoPreviewModal';
-import path from 'path';
 import BatchDistributeModal from './BatchDistributeModal';
 
 function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
@@ -78,8 +77,9 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
     };
   }, [projectId]);
 
-  const handleTogglePhotoSelection = (photo) => {
-    setPinnedPhoto(photo.rawPath);
+  const handleTogglePhotoSelection = async (photo) => {
+    const base64Data = await window.api.getPhotoAsBase64(photo.rawPath);
+    setPinnedPhoto(base64Data);
 
     const newSelection = new Set(selectedPhotos);
     if (newSelection.has(photo)) {
@@ -172,6 +172,15 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
     }
   };
 
+  const handleMouseEnterPreview = async (rawPath) => {
+    const base64Data = await window.api.getPhotoAsBase64(rawPath);
+    setPreviewPhoto(base64Data);
+  };
+
+  const handleMouseLeavePreview = () => {
+    setPreviewPhoto(null);
+  };
+
   const filteredCustomers = customerList.filter(customer =>
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.voucherCode.toLowerCase().includes(searchTerm.toLowerCase())
@@ -181,7 +190,7 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
     return <div>Loading project...</div>;
   }
 
-  const photoToShow = previewPhoto ? previewPhoto : pinnedPhoto;
+  const photoToShow = previewPhoto || pinnedPhoto;
 
   return (
     <div className="workspace-container">
@@ -290,16 +299,16 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
                     key={photo.rawPath}
                     className={`photo-thumbnail ${selectedPhotos.has(photo) ? 'selected' : ''}`}
                     onClick={() => handleTogglePhotoSelection(photo)}
-                    onMouseEnter={() => setPreviewPhoto(photo.rawPath)}
-                    onMouseLeave={() => setPreviewPhoto(null)}
+                    onMouseEnter={() => handleMouseEnterPreview(photo.rawPath)}
+                    onMouseLeave={handleMouseLeavePreview}
                   >
-                    <img src={`file://${photo.thumbPath}`} alt="thumbnail" />
+                    <img src={photo.thumbPath} alt="thumbnail" />
                   </div>
                 ))}
               </div>
               <div className="photo-preview-area">
                 {photoToShow ? (
-                  <img src={`file://${photoToShow}`} alt="Preview" />
+                  <img src={photoToShow} alt="Preview" />
                 ) : (
                   <div className="preview-placeholder">
                     <p>Hover or click a thumbnail to preview</p>

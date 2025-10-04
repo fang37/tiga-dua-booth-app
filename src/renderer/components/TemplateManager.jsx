@@ -14,10 +14,13 @@ function TemplateManager({ onBack }) {
   const [backgroundColor, setBackgroundColor] = useState('#FFFFFF');
 
   const [watermarkPath, setWatermarkPath] = useState('');
+  const [watermarkPreviewData, setWatermarkPreviewData] = useState(null);
   const [watermarkSize, setWatermarkSize] = useState(80);
   const [watermarkOpacity, setWatermarkOpacity] = useState(0.5);
   const [watermarkPosition, setWatermarkPosition] = useState({ x: 0, y: 0 });
   const watermarkRef = useRef(null);
+  const [overlayPath, setOverlayPath] = useState('');
+  const [overlayPreviewData, setOverlayPreviewData] = useState(null);
 
   const fetchTemplates = async () => {
     const tpls = await window.api.getAllTemplates();
@@ -33,14 +36,17 @@ function TemplateManager({ onBack }) {
   };
 
   const handleSelectWatermark = async () => {
-    const path = await window.api.openFileDialog();
-    if (path) {
-      setWatermarkPath(path);
+    const sourcePath = await window.api.openFileDialog();
+    if (sourcePath) {
+      setWatermarkPath(sourcePath);
+      const data = await window.api.getPhotoAsBase64(sourcePath);
+      setWatermarkPreviewData(data);
     }
   };
 
   const handleRemoveWatermark = () => {
     setWatermarkPath('');
+    setWatermarkPreviewData(null);
   };
 
   const handleSubmit = async (e) => {
@@ -77,7 +83,28 @@ function TemplateManager({ onBack }) {
     fetchTemplates();
   };
 
-  const handlePreviewTemplate = (template) => {
+  const handleExportBlank = async (template) => {
+    const result = await window.api.exportBlankTemplate(template);
+    if (result.success) {
+      // Call the new, direct function with the full file path
+      window.api.showItemInFolder(result.path);
+    } else {
+      alert(`Error exporting blank: ${result.error}`);
+    }
+  };
+
+  const handleSetOverlay = async (templateId) => {
+    const sourcePath = await window.api.openFileDialog();
+    if (sourcePath) {
+      const result = await window.api.setTemplateOverlay({ templateId, sourcePath });
+      setOverlayPath(result.path);
+      const data = await window.api.getPhotoAsBase64(result.path);
+      setOverlayPreviewData(data);
+      fetchTemplates();
+    }
+  };
+
+  const handlePreviewTemplate = async (template) => {
     const config = JSON.parse(template.layout_config);
 
     setName(template.name);
@@ -88,13 +115,25 @@ function TemplateManager({ onBack }) {
     setHeightMm(config.print_height_mm);
     setPaddingMm(config.padding_mm);
     setBackgroundColor(template.background_color);
-    if (config.watermark) {
+    if (config.watermark && config.watermark.path) {
       setWatermarkPath(config.watermark.path || '');
       setWatermarkSize(config.watermark.size || 80);
       setWatermarkOpacity(config.watermark.opacity || 0.5);
       setWatermarkPosition(config.watermark.position || { x: 50, y: 50 });
+      const data = await window.api.getPhotoAsBase64(config.watermark.path);
+      setWatermarkPreviewData(data);
     } else {
       setWatermarkPath('');
+      setWatermarkPreviewData(null);
+    }
+
+    setOverlayPath(template.overlay_image_path || '');
+    if (template.overlay_image_path) {
+      // Fetch the Base64 data for the preview
+      const data = await window.api.getPhotoAsBase64(template.overlay_image_path);
+      setOverlayPreviewData(data);
+    } else {
+      setOverlayPreviewData(null);
     }
   };
 
@@ -253,9 +292,17 @@ function TemplateManager({ onBack }) {
                 {Array.from({ length: rows * cols }).map((_, i) => (
                   <div key={i} className="preview-cell"></div>
                 ))}
-                {watermarkPath && (
+                {overlayPreviewData && (
                   <img
-                    src={`file://${watermarkPath}`}
+                    src={overlayPreviewData} // Use the Base64 data directly
+                    alt="Overlay Preview"
+                    className="overlay-preview-image"
+                  />
+                )}
+                {watermarkPreviewData && (
+                  <img
+                    ref={watermarkRef}
+                    src={watermarkPreviewData}
                     alt="Watermark Preview"
                     className="watermark-preview"
                     style={watermarkPreviewStyle}
@@ -268,13 +315,18 @@ function TemplateManager({ onBack }) {
             <h3>Existing Templates</h3>
             <div className="template-list">
               {templates.map(tpl => (
-                <div
-                  key={tpl.id}
-                  className="template-item"
-                  onClick={() => handlePreviewTemplate(tpl)}
-                >
-                  {tpl.name}
+                <div className="template-item">
+                  <span>{tpl.name}</span>
+                  {/* {tpl.overlay_image_path && (
+                    <img src={tpl.overlay_image_path} className="overlay-thumbnail-preview" alt="Overlay" />
+                  )} */}
+                  <div className="template-item-actions">
+                    <button className="btn-secondary btn-small" onClick={() => handlePreviewTemplate(tpl)}>Preview</button>
+                    <button className="btn-secondary btn-small" onClick={() => handleSetOverlay(tpl.id)}>Set Overlay</button>
+                    <button className="btn-secondary btn-small" onClick={() => handleExportBlank(tpl)}>Export Blank</button>
+                  </div>
                 </div>
+
               ))}
             </div>
           </div>

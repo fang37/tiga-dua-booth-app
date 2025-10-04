@@ -60,6 +60,7 @@ function initializeDatabase() {
       background_color TEXT DEFAULT '#FFFFFF',
       watermark_path TEXT,
       watermark_opacity REAL DEFAULT 0.5,
+      overlay_image_path TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -79,6 +80,7 @@ function initializeDatabase() {
   // db.prepare("ALTER TABLE vouchers ADD COLUMN distribution_status TEXT DEFAULT 'pending'").run();
   // db.prepare("ALTER TABLE vouchers ADD COLUMN drive_link TEXT").run();
   // db.prepare("ALTER TABLE vouchers ADD COLUMN qr_code_path TEXT").run();
+  // db.prepare("ALTER TABLE templates ADD COLUMN overlay_image_path TEXT").run();
 
   seedTemplates();
 
@@ -615,7 +617,7 @@ async function exportGridImage({ projectPath, imagePaths, template, customerId }
       })
     );
 
-    const compositeOps = resizedImageBuffers.map((buffer, index) => {
+    const photoCompositeOps = resizedImageBuffers.map((buffer, index) => {
       if (!buffer) return null;
       const col = index % layout.cols;
       const row = Math.floor(index / layout.cols);
@@ -624,7 +626,33 @@ async function exportGridImage({ projectPath, imagePaths, template, customerId }
       return { input: buffer, top: Math.round(top), left: Math.round(left) };
     }).filter(Boolean);
 
-    // Step 2: Prepare the watermark composite operation (if it exists)
+    // Step 3: Composite the photo grid onto the base canvas and save
+
+    let baseImage = await sharp({
+      create: {
+        width: canvasWidthPx,
+        height: canvasHeightPx,
+        channels: 4,
+        background: layout.background_color || '#FFFFFF',
+      }
+    })
+      .composite(photoCompositeOps)
+      .jpeg() // Convert to a solid image buffer first
+      .toBuffer();
+
+    // Step 3: Sequentially layer the overlay and watermark on top
+    const finalCompositeLayers = [];
+
+    // Add overlay to the list if it exists
+    if (template.overlay_image_path && fs.existsSync(template.overlay_image_path)) {
+      finalCompositeLayers.push({
+        input: template.overlay_image_path,
+        top: 0,
+        left: 0,
+      });
+    }
+
+    // Prepare the watermark composite operation (if it exists)
     const watermarkConfig = layout.watermark;
     if (watermarkConfig && watermarkConfig.path && fs.existsSync(watermarkConfig.path)) {
       const watermarkWidth = Math.round(canvasWidthPx * (watermarkConfig.size / 100));
@@ -633,23 +661,15 @@ async function exportGridImage({ projectPath, imagePaths, template, customerId }
       const left = Math.round((canvasWidthPx / 100) * watermarkConfig.position.x - (watermarkMeta.width / 2));
       const top = Math.round((canvasHeightPx / 100) * watermarkConfig.position.y - (watermarkMeta.height / 2));
       // Add the watermark to our list of operations
-      compositeOps.push({ input: watermarkBuffer, top, left });
+      finalCompositeLayers.push({ input: watermarkBuffer, top, left });
     }
 
-    // Step 3: Composite the photo grid onto the base canvas and save
-    await sharp({
-      create: {
-        width: canvasWidthPx,
-        height: canvasHeightPx,
-        channels: 4,
-        background: background_color || '#FFFFFF',
-      }
-    })
-      .composite(compositeOps) // Apply photos and watermark in one step
+    await sharp(baseImage)
+      .composite(finalCompositeLayers)
       .jpeg({ quality: 95 })
       .withMetadata({ density: DPI })
       .toFile(outputPath);
-
+      
     db.prepare("UPDATE customers SET export_status = 'exported', exported_file_path = ? WHERE id = ?")
       .run(outputPath, customerId);
 
@@ -728,6 +748,95 @@ function getSingleCustomerForDistribution(customerId) {
   return stmt.get(customerId);
 }
 
+async function exportBlankTemplate(template) {
+  try {
+    const layout = JSON.parse(template.layout_config);
+    const DPI = 300;
+    const MM_PER_INCH = 25.4;
+
+    // Use the user's "Downloads" folder for the export
+    const outputPath = path.join(app.getPath('downloads'), `${template.name}-blank.png`);
+
+    // Convert all dimensions from mm to pixels
+    const canvasWidthPx = Math.round((layout.print_width_mm / MM_PER_INCH) * DPI);
+    const canvasHeightPx = Math.round((layout.print_height_mm / MM_PER_INCH) * DPI);
+
+    const gapPx = Math.round((layout.gap_mm / MM_PER_INCH) * DPI);
+    const paddingTopPx = Math.round((layout.padding_mm.top / MM_PER_INCH) * DPI);
+    const paddingBottomPx = Math.round((layout.padding_mm.bottom / MM_PER_INCH) * DPI);
+    const paddingLeftPx = Math.round((layout.padding_mm.left / MM_PER_INCH) * DPI);
+    const paddingRightPx = Math.round((layout.padding_mm.right / MM_PER_INCH) * DPI);
+
+    const gridAreaWidth = canvasWidthPx - (paddingLeftPx + paddingRightPx);
+    const gridAreaHeight = canvasHeightPx - (paddingTopPx + paddingBottomPx);
+    const cellWidth = (gridAreaWidth - (gapPx * (layout.cols - 1))) / layout.cols;
+    const cellHeight = (gridAreaHeight - (gapPx * (layout.rows - 1))) / layout.rows;
+
+    // Create a buffer for a transparent rectangle (the "cutout")
+    const cutoutBuffer = await sharp({
+      create: { width: Math.round(cellWidth), height: Math.round(cellHeight), channels: 4, background: { r: 0, g: 0, b: 0, alpha: 1 } }
+    }).png().toBuffer();
+
+    // Create the composite operations for each cutout
+    const compositeOps = [];
+    for (let i = 0; i < (layout.rows * layout.cols); i++) {
+      const row = Math.floor(i / layout.cols);
+      const col = i % layout.cols;
+      const top = Math.round(paddingTopPx + row * (cellHeight + gapPx));
+      const left = Math.round(paddingLeftPx + col * (cellWidth + gapPx));
+      compositeOps.push({ input: cutoutBuffer, blend: 'dest-out', top, left });
+    }
+
+    // Create the base canvas with the template's background color
+    await sharp({
+      create: {
+        width: canvasWidthPx,
+        height: canvasHeightPx,
+        channels: 4,
+        background: template.background_color,
+      }
+    })
+      .composite(compositeOps) // Apply the "cutouts"
+      .png() // Ensure the output is a PNG to support transparency
+      .toFile(outputPath);
+
+    return { success: true, path: outputPath };
+  } catch (error) {
+    console.error('Failed to export blank template:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+function setTemplateOverlay({ templateId, sourcePath }) {
+  try {
+    const templateDir = path.join(app.getPath('userData'), 'template_assets', String(templateId));
+    if (!fs.existsSync(templateDir)) {
+      fs.mkdirSync(templateDir, { recursive: true });
+    }
+
+    const destPath = path.join(templateDir, 'overlay.png');
+    fs.copyFileSync(sourcePath, destPath); // Copy the file
+
+    // Save the new path to the database
+    db.prepare('UPDATE templates SET overlay_image_path = ? WHERE id = ?').run(destPath, templateId);
+    return { success: true, path: destPath };
+  } catch (error) {
+    console.error('Failed to set template overlay:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+function getPhotoAsBase64(filePath) {
+  try {
+    const imageBuffer = fs.readFileSync(filePath);
+    const base64Image = imageBuffer.toString('base64');
+    return `data:image/jpeg;base64,${base64Image}`;
+  } catch (error) {
+    console.error('Failed to read photo for preview:', error);
+    return null;
+  }
+}
+
 // Export the database instance and the setup function using ES Module syntax
 export {
   db,
@@ -755,5 +864,8 @@ export {
   updateVoucherStatus,
   generateVouchersAndQRCodes,
   getPendingDistribution,
-  getSingleCustomerForDistribution
+  getSingleCustomerForDistribution,
+  exportBlankTemplate,
+  getPhotoAsBase64,
+  setTemplateOverlay
 };

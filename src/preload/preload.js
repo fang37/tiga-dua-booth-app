@@ -35,18 +35,22 @@ contextBridge.exposeInMainWorld('api', {
     // File System & Dialogs
     openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
     openFolder: (data) => ipcRenderer.invoke('open-folder', data),
+    getPhotoAsBase64: (data) => ipcRenderer.invoke('get-photo-as-base64', data),
 
     // Template Management
     getAllTemplates: () => ipcRenderer.invoke('get-all-templates'),
     createTemplate: (data) => ipcRenderer.invoke('create-template', data),
     getTemplatesForProject: (data) => ipcRenderer.invoke('get-templates-for-project', data),
     setTemplatesForProject: (data) => ipcRenderer.invoke('set-templates-for-project', data),
+    exportBlankTemplate: (data) => ipcRenderer.invoke('export-blank-template', data),
+    setTemplateOverlay : (data) => ipcRenderer.invoke('set-template-overlay', data),
 
     // API
     distributeToDrive: (data) => ipcRenderer.invoke('distribute-to-drive', data),
     sendLinkToMapper: (data) => ipcRenderer.invoke('send-link-to-mapper', data),
     batchDistributeAll: (data) => ipcRenderer.invoke('batch-distribute-all', data),
     distributeSingleCustomer: (customerId) => ipcRenderer.invoke('distribute-single-customer', customerId),
+    showItemInFolder: (path) => ipcRenderer.invoke('show-item-in-folder', path),
     onBatchProgress: (callback) => {
         const channel = 'batch-progress-update';
         const listener = (_event, value) => callback(value);

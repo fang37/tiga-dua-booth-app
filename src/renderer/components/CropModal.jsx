@@ -36,7 +36,7 @@ function CropModal({ imageSrc, onClose, onCrop, aspectRatio }) {
         <div className="cropper-container">
           <Cropper
             ref={cropperRef}
-            src={`file://${imageSrc}`}
+            src={imageSrc.base64Data}
             style={{ height: 400, width: '100%' }}
             aspectRatio={aspectRatio}
             viewMode={1}
@@ -53,7 +53,7 @@ function CropModal({ imageSrc, onClose, onCrop, aspectRatio }) {
             min="-45"
             max="45"
             value={rotation}
-            onChange={handleRotationChange} 
+            onChange={handleRotationChange}
             className="rotation-slider"
           />
         </div>
@@ -61,8 +61,8 @@ function CropModal({ imageSrc, onClose, onCrop, aspectRatio }) {
         <div className="modal-actions">
           <button className="btn-secondary rotate-btn" onClick={handleRotate90}>Rotate ↻</button>
           <div className="modal-actions-right">
-             <button className="btn-secondary" onClick={onClose}>Cancel</button>
-             <button className="btn-primary" onClick={getCropData}>Crop</button>
+            <button className="btn-secondary" onClick={onClose}>Cancel</button>
+            <button className="btn-primary" onClick={getCropData}>Crop</button>
           </div>
         </div>
       </div>

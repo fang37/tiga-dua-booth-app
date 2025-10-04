@@ -1,9 +1,9 @@
 import 'dotenv/config';
-import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, protocol } from 'electron';
 import path from 'node:path';
 import fs from 'fs';
 import { getSetting, saveSetting } from './services/settingsService.js';
-import { initializeDatabase, createProject, getProjects, getProjectById, findVoucherByCode, assignPhotosToCustomer, getCustomersByProjectId, getPhotosByCustomerId, revertPhotosToRaw, runHealthCheckForProject, saveCroppedImage, generateVouchersForProject, redeemVoucher, getEditedPhotosByCustomerId, getAllTemplates, createTemplate, setTemplatesForProject, getTemplatesForProject, exportGridImage, setVoucherDistributed, getExportedFilesForCustomer, updateVoucherStatus, generateVouchersAndQRCodes, getPendingDistribution, getSingleCustomerForDistribution } from './services/database.js';
+import { initializeDatabase, createProject, getProjects, getProjectById, findVoucherByCode, assignPhotosToCustomer, getCustomersByProjectId, getPhotosByCustomerId, revertPhotosToRaw, runHealthCheckForProject, saveCroppedImage, generateVouchersForProject, redeemVoucher, getEditedPhotosByCustomerId, getAllTemplates, createTemplate, setTemplatesForProject, getTemplatesForProject, exportGridImage, setVoucherDistributed, getExportedFilesForCustomer, updateVoucherStatus, generateVouchersAndQRCodes, getPendingDistribution, getSingleCustomerForDistribution, exportBlankTemplate, getPhotoAsBase64, setTemplateOverlay } from './services/database.js';
 import { generateThumbnail } from './services/thumbnailService.js';
 import { distributeToDrive } from './services/googleDriveService.js';
 import { sendLinkToMapper } from './services/apiService.js';
@@ -21,11 +21,11 @@ if (started) {
 const createWindow = () => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1200,
+    height: 768,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      webSecurity: false,
+      webSecurity: true,
     },
   });
 
@@ -44,7 +44,16 @@ const createWindow = () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
+  protocol.handle('safe-file', (request, callback) => {
+    const url = request.url.substr(7);
+    return net.fetch(url)
+  })
+
   initializeDatabase();
+
+  ipcMain.handle('show-item-in-folder', (event, fullPath) => {
+    shell.showItemInFolder(fullPath);
+  });
 
   ipcMain.handle('create-project', async (event, projectData) => {
     const result = createProject(projectData);
@@ -168,6 +177,14 @@ app.whenReady().then(() => {
   ipcMain.handle('distribute-single-customer', async (event, customerId) => {
     const jobData = getSingleCustomerForDistribution(customerId);
     return processDistributionForCustomer(jobData);
+  });
+
+  ipcMain.handle('export-blank-template', (event, data) => exportBlankTemplate(data));
+  
+  ipcMain.handle('set-template-overlay', (event, data) => setTemplateOverlay(data));
+
+  ipcMain.handle('get-photo-as-base64', async (event, id) => {
+    return getPhotoAsBase64(id);
   });
 
   ipcMain.on('start-watching', (event, projectPath) => {
