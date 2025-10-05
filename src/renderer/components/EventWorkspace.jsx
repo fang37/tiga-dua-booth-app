@@ -53,7 +53,7 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
     loadProjectAndStartWatcher();
 
     const handleDataChanged = () => {
-      console.log('Data changed event received, refreshing customer list...');
+      // console.log('Data changed event received, refreshing customer list...');
       fetchCustomers();
     };
 

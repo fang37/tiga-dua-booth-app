@@ -84,7 +84,7 @@ function initializeDatabase() {
 
   seedTemplates();
 
-  console.log('Database has been initialized.');
+  // console.log('Database has been initialized.');
 }
 
 function seedTemplates() {
@@ -96,7 +96,7 @@ function seedTemplates() {
       // Check if templates already exist to prevent duplicates
       const count = db.prepare('SELECT COUNT(*) as count FROM templates').get().count;
       if (count === 0) {
-        console.log('Seeding default templates...');
+        // console.log('Seeding default templates...');
         // 1. Basic 4x1
         stmt.run(
           'Basic 4x1',
@@ -158,7 +158,7 @@ function createProject({ name, event_date }) {
     );
     const info = stmt.run(name, event_date, projectFolderPath);
 
-    console.log(`Successfully created project: ${name} with ID: ${info.lastInsertRowid}`);
+    // console.log(`Successfully created project: ${name} with ID: ${info.lastInsertRowid}`);
 
     // 5. Return the ID of the new project
     return { success: true, projectId: info.lastInsertRowid };
@@ -229,7 +229,7 @@ function redeemVoucher({ voucherCode, name, email, phoneNumber }) { // <-- phone
 
   try {
     const newCustomerId = redeemTransaction();
-    console.log(`Successfully redeemed voucher ${voucherCode} for customer ${name}. New customer ID: ${newCustomerId}`);
+    // console.log(`Successfully redeemed voucher ${voucherCode} for customer ${name}. New customer ID: ${newCustomerId}`);
     return { success: true, customerId: newCustomerId };
   } catch (error) {
     console.error(`Failed to redeem voucher ${voucherCode}:`, error);
@@ -268,7 +268,7 @@ function generateVouchersForProject({ projectId, quantity }) {
 
     insertMany(vouchersToInsert);
 
-    console.log(`Successfully generated ${quantity} vouchers for project ID: ${projectId}`);
+    // console.log(`Successfully generated ${quantity} vouchers for project ID: ${projectId}`);
     return { success: true, count: quantity };
   } catch (error) {
     console.error('Failed to generate vouchers:', error);
@@ -306,7 +306,7 @@ async function generateVouchersAndQRCodes({ projectId, quantity }) {
     });
 
     generateTransaction();
-    console.log(`Successfully generated ${quantity} vouchers and QR codes.`);
+    // console.log(`Successfully generated ${quantity} vouchers and QR codes.`);
     return { success: true, count: quantity };
   } catch (error) {
     console.error('Failed to generate vouchers and QR codes:', error);
@@ -342,7 +342,7 @@ function assignPhotosToCustomer({ customerId, photoPaths }) {
     const assignTransaction = db.transaction(() => {
       photoPaths.forEach((sourcePath) => {
         if (!fs.existsSync(sourcePath)) {
-          console.log(`Skipping missing file: ${sourcePath}`);
+          // console.log(`Skipping missing file: ${sourcePath}`);
           return;
         }
 
@@ -368,7 +368,7 @@ function assignPhotosToCustomer({ customerId, photoPaths }) {
     });
 
     assignTransaction();
-    console.log(`Assignment process completed for customer ${customerId}`);
+    // console.log(`Assignment process completed for customer ${customerId}`);
     return { success: true };
   } catch (error) {
     console.error('Failed to assign photos:', error);
@@ -431,7 +431,7 @@ function runHealthCheckForProject(projectId) {
     }
 
     if (missingPhotoIds.length > 0) {
-      console.log(`[Health Check] Found ${missingPhotoIds.length} missing photos. Cleaning database...`);
+      // console.log(`[Health Check] Found ${missingPhotoIds.length} missing photos. Cleaning database...`);
       // Use a transaction to delete all missing records at once
       const deleteStmt = db.prepare('DELETE FROM photos WHERE id = ?');
       const deleteTransaction = db.transaction(() => {
@@ -441,7 +441,7 @@ function runHealthCheckForProject(projectId) {
       });
       deleteTransaction();
     } else {
-      console.log('[Health Check] All photo records are valid.');
+      // console.log('[Health Check] All photo records are valid.');
     }
 
     return { success: true, cleanedCount: missingPhotoIds.length };
@@ -708,7 +708,7 @@ async function exportGridImage({ projectPath, imagePaths, template, customerId }
     db.prepare("UPDATE customers SET export_status = 'exported', exported_file_path = ? WHERE id = ?")
       .run(outputPath, customerId);
 
-    console.log(`Grid exported and status updated for customer ${customerId}`);
+    // console.log(`Grid exported and status updated for customer ${customerId}`);
     return { success: true, path: outputPath };
   } catch (error) {
     console.error('Failed to export grid:', error);
@@ -748,7 +748,7 @@ function updateVoucherStatus({ voucherId, status, link = null }) {
       .run(status, voucherId);
   }
 
-  console.log(`Vocuher ${voucherId} status updated to ${status}`);
+  // console.log(`Vocuher ${voucherId} status updated to ${status}`);
   return { success: true };
 }
 

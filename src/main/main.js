@@ -192,7 +192,7 @@ app.whenReady().then(() => {
   ipcMain.on('start-watching', (event, projectPath) => {
     const rawFolderPath = path.join(projectPath, 'raw');
 
-    console.log(`[Watcher] Starting to watch: ${rawFolderPath}`);
+    // console.log(`[Watcher] Starting to watch: ${rawFolderPath}`);
 
     watcher = chokidar.watch(rawFolderPath, {
       ignored: /^\./, // ignore dotfiles
@@ -200,7 +200,7 @@ app.whenReady().then(() => {
     });
 
     watcher.on('add', async (filePath) => {
-      console.log(`[Watcher] Detected new file: ${filePath}`);
+      // console.log(`[Watcher] Detected new file: ${filePath}`);
 
       // Generate a thumbnail for the new photo
       const thumbPath = await generateThumbnail(filePath);
