@@ -44,6 +44,7 @@ contextBridge.exposeInMainWorld('api', {
     setTemplatesForProject: (data) => ipcRenderer.invoke('set-templates-for-project', data),
     exportBlankTemplate: (data) => ipcRenderer.invoke('export-blank-template', data),
     setTemplateOverlay : (data) => ipcRenderer.invoke('set-template-overlay', data),
+    removeTemplateOverlay : (data) => ipcRenderer.invoke('remove-template-overlay', data),
 
     // API
     distributeToDrive: (data) => ipcRenderer.invoke('distribute-to-drive', data),

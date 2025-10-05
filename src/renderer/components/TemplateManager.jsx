@@ -104,6 +104,20 @@ function TemplateManager({ onBack }) {
     }
   };
 
+  const handleRemoveOverlay = async (templateId) => {
+    const result = await window.api.removeTemplateOverlay(templateId);
+    if (result.success) {
+      // Clear the preview if we're removing the overlay from the currently previewed template
+      if (name === templates.find(t => t.id === templateId)?.name) {
+        setOverlayPath('');
+        setOverlayPreviewData(null);
+      }
+      fetchTemplates(); // Refresh the list
+    } else {
+      alert(`Error removing overlay: ${result.error}`);
+    }
+  };
+
   const handlePreviewTemplate = async (template) => {
     const config = JSON.parse(template.layout_config);
 
@@ -323,6 +337,9 @@ function TemplateManager({ onBack }) {
                   <div className="template-item-actions">
                     <button className="btn-secondary btn-small" onClick={() => handlePreviewTemplate(tpl)}>Preview</button>
                     <button className="btn-secondary btn-small" onClick={() => handleSetOverlay(tpl.id)}>Set Overlay</button>
+                    {tpl.overlay_image_path && (
+                      <button className="btn-secondary btn-small btn-danger" onClick={() => handleRemoveOverlay(tpl.id)}>Remove Overlay</button>
+                    )}
                     <button className="btn-secondary btn-small" onClick={() => handleExportBlank(tpl)}>Export Blank</button>
                   </div>
                 </div>

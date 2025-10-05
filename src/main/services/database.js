@@ -588,6 +588,16 @@ function getTemplatesForProject(projectId) {
   return stmt.all(projectId);
 }
 
+function removeTemplateOverlay(templateId) {
+  try {
+    db.prepare('UPDATE templates SET overlay_image_path = NULL WHERE id = ?').run(templateId);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to remove template overlay:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 async function exportGridImage({ projectPath, imagePaths, template, customerId }) {
   try {
     const finalFolderPath = path.join(projectPath, 'final');
@@ -892,5 +902,6 @@ export {
   getSingleCustomerForDistribution,
   exportBlankTemplate,
   getPhotoAsBase64,
-  setTemplateOverlay
+  setTemplateOverlay,
+  removeTemplateOverlay
 };

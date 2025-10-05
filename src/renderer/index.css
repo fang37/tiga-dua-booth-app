@@ -1152,6 +1152,15 @@ html,
   /* Red on hover */
 }
 
+.btn-danger {
+  background-color: #c0392b;
+  color: white;
+  border-color: #c0392b;
+}
+.btn-danger:hover {
+  background-color: #e74c3c;
+}
+
 .btn-icon {
   background-color: #3c3c3c;
   color: #d4d4d4;
