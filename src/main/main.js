@@ -1,4 +1,9 @@
 import 'dotenv/config';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 import { app, BrowserWindow, ipcMain, dialog, shell, protocol } from 'electron';
 import path from 'node:path';
 import fs from 'fs';
@@ -24,16 +29,23 @@ const createWindow = () => {
     width: 1200,
     height: 768,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, '../preload/preload.js'),
       webSecurity: true,
     },
   });
 
-  // and load the index.html of the app.
-  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+  // Dev/prod switch for loading the app
+  const isDev = process.env.NODE_ENV === 'development' || process.env.VITE_DEV_SERVER_URL;
+  const devServerUrl = 'http://localhost:5173';
+  const viteName = process.env.VITE_NAME || 'renderer';
+
+
+  if (isDev) {
+    mainWindow.loadURL(devServerUrl);
+    mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
+    // Load the built Vite index.html from the dist directory
+    mainWindow.loadFile(path.join(__dirname, '../renderer/dist/index.html'));
   }
 
   // Open the DevTools.

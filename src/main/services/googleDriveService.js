@@ -2,7 +2,6 @@ import { google } from 'googleapis';
 import path from 'path';
 import fs from 'fs';
 import { authenticate } from '@google-cloud/local-auth';
-import { JSONClient } from 'google-auth-library/build/src/auth/googleauth';
 
 const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
 const CREDENTIALS_PATH = path.join(process.cwd(), 'credentials.json');

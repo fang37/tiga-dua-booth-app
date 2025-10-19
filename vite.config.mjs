@@ -4,11 +4,9 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-
-// https://vitejs.dev/config
 export default defineConfig({
-  // Add the root property here
-  root: resolve(__dirname, 'src/renderer'), 
+  root: resolve(__dirname, 'src/renderer'),
+  base: './',
   resolve: {
     alias: {
       '@renderer': resolve('src/renderer/src'),
