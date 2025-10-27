@@ -24,6 +24,9 @@
 3. Find your installer:
    - `dist/tiga-dua-booth-app Setup <version>.exe`
 
+## Installation Notes
+After you install the .exe on a new computer, you need to manually place your .env file in the correct location so the running application can find it. The simplest place is usually right next to the installed .exe file itself inside the installation folder, e.g., in `C:\Users\YourUser\AppData\Local\Programs\tiga-dua-booth-app`
+
 ## Notes
 - Always run `npm run build` before `npm run dist` to ensure latest assets are packaged.
 - For development, use the Vite dev server and Electron with dev environment variables.

@@ -342,28 +342,47 @@ function assignPhotosToCustomer({ customerId, photoPaths }) {
     const assignTransaction = db.transaction(() => {
       photoPaths.forEach((sourcePath) => {
         if (!fs.existsSync(sourcePath)) {
-          // console.log(`Skipping missing file: ${sourcePath}`);
+          console.log(`Skipping missing file: ${sourcePath}`);
           return;
         }
 
         currentPhotoCount++;
         const sequence = String(currentPhotoCount).padStart(2, '0');
-        const fileExtension = path.extname(sourcePath);
+        // const fileExtension = path.extname(sourcePath);
         const baseFileName = `${filePrefix}-${info.voucher_code}-${sequence}`;
 
-        let newFileName = `${baseFileName}${fileExtension}`;
-        let destPath = path.join(info.customer_folder, newFileName);
-
-        // If a file with this name somehow already exists, add a unique suffix
-        let suffix = 1;
-        while (fs.existsSync(destPath)) {
-          newFileName = `${baseFileName}_${suffix}${fileExtension}`;
-          destPath = path.join(info.customer_folder, newFileName);
-          suffix++;
+        // --- JPEG FILE HANDLING ---
+        let jpegDestPath = path.join(info.customer_folder, `${baseFileName}.jpg`);
+        let jpegFileName = `${baseFileName}.jpg`;
+        let jpegSuffix = 1;
+        // Check if JPEG destination exists and add suffix if needed
+        while (fs.existsSync(jpegDestPath)) {
+          jpegFileName = `${baseFileName}_${jpegSuffix}.jpg`;
+          jpegDestPath = path.join(info.customer_folder, jpegFileName);
+          jpegSuffix++;
         }
+        fs.renameSync(sourcePath, jpegDestPath);
+        insertPhotoStmt.run(customerId, jpegDestPath);
 
-        fs.renameSync(sourcePath, destPath);
-        insertPhotoStmt.run(customerId, destPath);
+        // --- RAW FILE HANDLING ---
+        const rawFileExtension = '.arw'; // Or your specific RAW extension
+        const rawSourcePath = sourcePath.replace(/\.(jpg|jpeg)$/i, rawFileExtension);
+        
+        if (fs.existsSync(rawSourcePath)) {
+          let rawDestPath = path.join(info.customer_folder, `${baseFileName}${rawFileExtension}`);
+          let rawFileName = `${baseFileName}${rawFileExtension}`;
+          let rawSuffix = 1;
+           // Check if RAW destination exists and add suffix if needed
+          while (fs.existsSync(rawDestPath)) {
+            // Use the same suffix number as the JPEG if possible, but still check
+            const suffixToUse = Math.max(jpegSuffix -1, rawSuffix); // Ensure suffix is at least 1 if JPEG needed one
+            rawFileName = `${baseFileName}_${suffixToUse}${rawFileExtension}`;
+            rawDestPath = path.join(info.customer_folder, rawFileName);
+            rawSuffix = suffixToUse + 1; // Increment for the next potential check
+          }
+          fs.renameSync(rawSourcePath, rawDestPath);
+          console.log(`Paired RAW file moved: ${rawDestPath}`);
+        }
       });
     });
 

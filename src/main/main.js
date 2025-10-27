@@ -192,13 +192,13 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('export-blank-template', (event, data) => exportBlankTemplate(data));
-  
+
   ipcMain.handle('set-template-overlay', (event, data) => setTemplateOverlay(data));
 
   ipcMain.handle('get-photo-as-base64', async (event, id) => {
     return getPhotoAsBase64(id);
   });
-  
+
   ipcMain.handle('remove-template-overlay', (event, data) => removeTemplateOverlay(data));
 
   ipcMain.on('start-watching', (event, projectPath) => {
