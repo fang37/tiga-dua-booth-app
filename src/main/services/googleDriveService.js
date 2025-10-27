@@ -2,10 +2,11 @@ import { google } from 'googleapis';
 import path from 'path';
 import fs from 'fs';
 import { authenticate } from '@google-cloud/local-auth';
+import { app } from 'electron';
 
 const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
-const CREDENTIALS_PATH = path.join(process.cwd(), 'credentials.json');
-const TOKEN_PATH = path.join(process.cwd(), 'token.json');
+const CREDENTIALS_PATH = path.join(app.getAppPath(), 'credentials.json');
+const TOKEN_PATH = path.join(app.getPath('userData'), 'token.json');
 
 /**
  * A more robust authorization function.

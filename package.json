@@ -41,7 +41,8 @@
     "files": [
       "src/**/*",
       "node_modules/**/*",
-      "package.json"
+      "package.json",
+      "credentials.json"
     ],
     "directories": {
       "buildResources": "build"

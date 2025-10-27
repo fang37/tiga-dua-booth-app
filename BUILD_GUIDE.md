@@ -13,7 +13,7 @@
 ## Production Build (Windows .exe)
 1. Build renderer assets with Vite:
    ```
-   npm run build
+   npm run build or npx vite build
    ```
    (This runs `vite build` and outputs to `src/renderer/dist`)
 2. Package the Electron app:
