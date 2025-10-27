@@ -16,9 +16,9 @@ function readSettings() {
   return {};
 }
 
-export function getSetting(key) {
+export function getSetting(key, defaultValue = null) {
   const settings = readSettings();
-  return settings[key];
+  return settings[key] !== undefined ? settings[key] : defaultValue;
 }
 
 export function saveSetting({ key, value }) {

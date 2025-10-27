@@ -289,6 +289,9 @@ async function generateVouchersAndQRCodes({ projectId, quantity }) {
       fs.mkdirSync(qrCodeFolderPath, { recursive: true });
     }
 
+    const qrColorDark = getSetting('qrColorDark', '#444341');
+    const qrColorLight = getSetting('qrColorLight', '#00000000');
+
     const insertStmt = db.prepare(
       'INSERT INTO vouchers (project_id, code, qr_code_path) VALUES (?, ?, ?)'
     );
@@ -299,7 +302,12 @@ async function generateVouchersAndQRCodes({ projectId, quantity }) {
         const fullUrl = `${qrCodeBaseUrl}${code}`;
         const qrCodePath = path.join(qrCodeFolderPath, `${code}.png`);
 
-        QRCode.toFile(qrCodePath, fullUrl); // Asynchronously generate and save the QR code
+        QRCode.toFile(qrCodePath, fullUrl, {
+          color: {
+            dark: qrColorDark,
+            light: qrColorLight
+          }
+        });
 
         insertStmt.run(projectId, code, qrCodePath);
       }
