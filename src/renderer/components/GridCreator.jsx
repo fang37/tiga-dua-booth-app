@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import CropModal from './CropModal';
+import { useNotification } from './NotificationContext';
 
 // const TEMPLATES = {
 //   '2x2': { 
@@ -38,6 +39,8 @@ function GridCreator({ customer, projectId, onBack }) {
 
   const [overlayPreviewData, setOverlayPreviewData] = useState(null);
   const [watermarkPreviewData, setWatermarkPreviewData] = useState(null);
+
+  const { showNotification } = useNotification();
 
   const loadData = async () => {
     if (customer) {
@@ -232,10 +235,13 @@ function GridCreator({ customer, projectId, onBack }) {
     });
 
     if (result.success) {
-      await window.api.updateVoucherStatus({ voucherId: customer.voucherId, status: 'exported' });
-      alert(`Grid successfully exported!`);
+      await window.api.updateCustomerWorkflowStatus({
+        customerId: customer.id,
+        status: 'exported'
+      });
+      showNotification('Grid successfully exported!', 'success');
     } else {
-      alert(`Error exporting grid: ${result.error}`);
+      showNotification(`Error exporting grid: ${result.error}`, 'error');
     }
   };
 
@@ -331,9 +337,9 @@ function GridCreator({ customer, projectId, onBack }) {
                 />
               )}
             </div>
-            {watermarkPreviewData  && (
+            {watermarkPreviewData && (
               <img
-                src={watermarkPreviewData }
+                src={watermarkPreviewData}
                 alt="Watermark Preview"
                 className="watermark-preview"
                 style={watermarkPreviewStyle}

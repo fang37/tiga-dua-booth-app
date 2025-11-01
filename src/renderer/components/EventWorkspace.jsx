@@ -391,10 +391,10 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
                       <span>{cust.voucherCode}</span>
                     </div>
                     <div className="customer-badges">
-                      {cust.distribution_status === 'distributed' && <span className="badge distributed">✔ Distributed</span>}
-                      {cust.distribution_status === 'uploaded' && <span className="badge uploaded">✔ Uploaded</span>}
-                      {cust.distribution_status === 'failed' && <span className="badge failed">✖ Failed</span>}
-                      {cust.export_status === 'exported' && (cust.distribution_status === 'pending' || cust.distribution_status === 'exported') && <span className="badge exported">✔ Exported</span>}
+                      {cust.workflow_status === 'distributed' && <span className="badge distributed">✔ Distributed</span>}
+                      {cust.workflow_status === 'uploaded' && <span className="badge uploaded">✔ Uploaded</span>}
+                      {cust.workflow_status === 'failed' && <span className="badge failed">✖ Failed</span>}
+                      {cust.workflow_status === 'exported' && <span className="badge exported">✔ Exported</span>}
                       <div className="photo-count">{cust.photoCount}</div>
                     </div>
                   </div>

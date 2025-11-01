@@ -14,9 +14,8 @@ contextBridge.exposeInMainWorld('api', {
     getCustomersByProjectId: (id) => ipcRenderer.invoke('get-customers-by-project-id', id),
     findVoucherByCode: (data) => ipcRenderer.invoke('find-voucher-by-code', data),
     redeemVoucher: (data) => ipcRenderer.invoke('redeem-voucher', data),
-    setVoucherDistributed: (data) => ipcRenderer.invoke('set-voucher-distributed', data),
+    updateCustomerWorkflowStatus: (data) => ipcRenderer.invoke('update-customer-workflow-status', data),
     getExportedFilesForCustomer: (data) => ipcRenderer.invoke('get-exported-files-for-customer', data),
-    updateVoucherStatus: (data) => ipcRenderer.invoke('update-voucher-status', data),
 
     // Photo Management
     assignPhotos: (data) => ipcRenderer.invoke('assign-photos', data),

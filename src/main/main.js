@@ -8,7 +8,7 @@ import { app, BrowserWindow, ipcMain, dialog, shell, protocol } from 'electron';
 import path from 'node:path';
 import fs from 'fs';
 import { getSetting, saveSetting } from './services/settingsService.js';
-import { initializeDatabase, createProject, getProjects, getProjectById, findVoucherByCode, assignPhotosToCustomer, getCustomersByProjectId, getPhotosByCustomerId, revertPhotosToRaw, runHealthCheckForProject, saveCroppedImage, generateVouchersForProject, redeemVoucher, getEditedPhotosByCustomerId, getAllTemplates, createTemplate, setTemplatesForProject, getTemplatesForProject, exportGridImage, setVoucherDistributed, getExportedFilesForCustomer, updateVoucherStatus, generateVouchersAndQRCodes, getPendingDistribution, getSingleCustomerForDistribution, exportBlankTemplate, setTemplateOverlay, removeTemplateOverlay, getProjectFileAsBase64, getUserDataFileAsBase64, getProjectBasePath, scanRawPhotos } from './services/database.js';
+import { initializeDatabase, createProject, getProjects, getProjectById, findVoucherByCode, assignPhotosToCustomer, getCustomersByProjectId, getPhotosByCustomerId, revertPhotosToRaw, runHealthCheckForProject, saveCroppedImage, generateVouchersForProject, redeemVoucher, getEditedPhotosByCustomerId, getAllTemplates, createTemplate, setTemplatesForProject, getTemplatesForProject, exportGridImage, getExportedFilesForCustomer, generateVouchersAndQRCodes, getPendingDistribution, getSingleCustomerForDistribution, exportBlankTemplate, setTemplateOverlay, removeTemplateOverlay, getProjectFileAsBase64, getUserDataFileAsBase64, getProjectBasePath, scanRawPhotos, updateCustomerWorkflowStatus } from './services/database.js';
 import { generateThumbnail } from './services/thumbnailService.js';
 import { distributeToDrive } from './services/googleDriveService.js';
 import { triggerBackup } from './services/backupService.js';
@@ -202,9 +202,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('send-link-to-mapper', async (event, data) => { return sendLinkToMapper(data); });
 
-  ipcMain.handle('set-voucher-distributed', (event, data) => { return setVoucherDistributed(data); });
-
-  ipcMain.handle('update-voucher-status', (event, data) => { return updateVoucherStatus(data); });
+  ipcMain.handle('update-customer-workflow-status', (event, data) => updateCustomerWorkflowStatus(data));
 
   ipcMain.handle('get-exported-files-for-customer', (event, data) => { return getExportedFilesForCustomer(data); });
 

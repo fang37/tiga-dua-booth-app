@@ -2,7 +2,7 @@
   "type": "module",
   "name": "tiga-dua-booth-app",
   "productName": "tiga-dua-booth-app",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "My Electron application description",
   "main": "src/main/main.js",
   "scripts": {
@@ -24,8 +24,10 @@
     "@google-cloud/local-auth": "^3.0.1",
     "better-sqlite3": "^12.2.0",
     "chokidar": "^4.0.3",
+    "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "electron-squirrel-startup": "^1.0.1",
+    "express": "^5.1.0",
     "googleapis": "^160.0.0",
     "qrcode": "^1.5.4",
     "react": "^19.1.1",
@@ -37,7 +39,10 @@
     "appId": "com.tigaduabooth.app",
     "productName": "tiga-dua-booth-app",
     "asar": true,
-    "asarUnpack": ["**/node_modules/sharp/**", "**/node_modules/@img/**/*"],
+    "asarUnpack": [
+      "**/node_modules/sharp/**",
+      "**/node_modules/@img/**/*"
+    ],
     "files": [
       "src/**/*",
       "node_modules/**/*",

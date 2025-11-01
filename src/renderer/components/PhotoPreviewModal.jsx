@@ -55,8 +55,8 @@ function PhotoPreviewModal({ customer, project, onClose, onRevert, onSetActive, 
                     <button
                         className="btn-primary"
                         onClick={() => onDistribute(customer)}
-                        disabled={customer.export_status !== 'exported'}
-                        title={customer.export_status !== 'exported' ? 'You must export the grid first' : ''}
+                        disabled={customer.workflow_status !== 'exported'}
+                        title={customer.workflow_status !== 'exported' ? 'You must export the grid first' : ''}
                     >
                         Distribute to Customer
                     </button>

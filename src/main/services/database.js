@@ -33,7 +33,6 @@ function initializeDatabase() {
       project_id INTEGER NOT NULL,
       code TEXT NOT NULL UNIQUE,
       status TEXT NOT NULL DEFAULT 'available',
-      distribution_status TEXT DEFAULT 'pending',
       drive_link TEXT,
       qr_code_path TEXT,
       FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
@@ -47,8 +46,8 @@ function initializeDatabase() {
       phone_number TEXT,
       folder_path TEXT NOT NULL UNIQUE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      export_status TEXT DEFAULT 'pending',
       exported_file_path TEXT,
+      workflow_status TEXT DEFAULT 'pending',
       FOREIGN KEY (voucher_id) REFERENCES vouchers (id) ON DELETE CASCADE
     );
 
@@ -519,11 +518,11 @@ function getCustomersByProjectId(projectId) {
   SELECT 
       c.id, 
       c.name, 
-      c.export_status, 
       c.exported_file_path, 
       v.code as voucherCode, 
       v.id as voucherId, 
-      v.distribution_status,
+      v.drive_link,
+      c.workflow_status,
       (SELECT COUNT(p.id) FROM photos p WHERE c.id = p.customer_id) as photoCount
     FROM customers c
     JOIN vouchers v ON c.voucher_id = v.id
@@ -792,10 +791,6 @@ async function exportGridImage({ projectPath, imagePaths, template, customerId }
       .withMetadata({ density: DPI })
       .toFile(outputPath);
 
-    db.prepare("UPDATE customers SET export_status = 'exported', exported_file_path = ? WHERE id = ?")
-      .run(outputPath, customerId);
-
-    // console.log(`Grid exported and status updated for customer ${customerId}`);
     return { success: true, path: outputPath };
   } catch (error) {
     console.error('Failed to export grid:', error);
@@ -803,9 +798,21 @@ async function exportGridImage({ projectPath, imagePaths, template, customerId }
   }
 }
 
-function setVoucherDistributed({ voucherId, link }) {
-  return db.prepare("UPDATE vouchers SET distribution_status = 'distributed', drive_link = ? WHERE id = ?")
-    .run(link, voucherId);
+function updateCustomerWorkflowStatus({ customerId, status, link = null }) {
+  try {
+    if (link) {
+      // This is for distribution-related statuses
+      db.prepare("UPDATE customers SET workflow_status = ? WHERE id = ?").run(status, customerId);
+      db.prepare("UPDATE vouchers SET drive_link = ? WHERE id = (SELECT voucher_id FROM customers WHERE id = ?)").run(link, customerId);
+    } else {
+      // This is for other statuses like 'exported' or 'failed'
+      db.prepare("UPDATE customers SET workflow_status = ? WHERE id = ?").run(status, customerId);
+    }
+    return { success: true };
+  } catch (error) {
+    console.error(`Failed to update status for customer ${customerId}:`, error);
+    return { success: false, error: error.message };
+  }
 }
 
 // This function finds all files in the /final folder for a specific voucher
@@ -826,25 +833,12 @@ function getExportedFilesForCustomer({ projectPath, voucherCode }) {
     const customerFiles = allFiles
       .filter(file => file.startsWith(voucherCode + '-'))
       .map(file => path.join(absoluteFinalFolderPath, file));
-      
+
     return customerFiles;
   } catch (error) {
     console.error('Failed to find exported files:', error);
     return [];
   }
-}
-
-function updateVoucherStatus({ voucherId, status, link = null }) {
-  if (link) {
-    db.prepare("UPDATE vouchers SET distribution_status = ?, drive_link = ? WHERE id = ?")
-      .run(status, link, voucherId);
-  } else {
-    db.prepare("UPDATE vouchers SET distribution_status = ? WHERE id = ?")
-      .run(status, voucherId);
-  }
-
-  // console.log(`Vocuher ${voucherId} status updated to ${status}`);
-  return { success: true };
 }
 
 function getPendingDistribution(projectId) {
@@ -853,13 +847,12 @@ function getPendingDistribution(projectId) {
       c.id, c.name, c.exported_file_path,
       v.id as voucherId, v.code as voucherCode,
       p.name as projectName, p.folder_path as projectPath, p.event_date as eventDate,
-      v.drive_link
+      v.drive_link, c.workflow_status
     FROM customers c
     JOIN vouchers v ON c.voucher_id = v.id
     JOIN projects p ON v.project_id = p.id
     WHERE
-      c.export_status = 'exported' AND
-      v.distribution_status in ('pending', 'exported', 'failed') AND
+      c.workflow_status IN ('exported', 'failed', 'pending') AND
       v.project_id = ?
   `);
   return stmt.all(projectId);
@@ -870,11 +863,12 @@ function getSingleCustomerForDistribution(customerId) {
   const stmt = db.prepare(` SELECT 
       c.id, c.name, c.exported_file_path,
       v.id as voucherId, v.code as voucherCode,
-      p.name as projectName, p.folder_path as projectPath, p.event_date as eventDate
+      p.name as projectName, p.folder_path as projectPath, p.event_date as eventDate,
+      v.drive_link, c.workflow_status
     FROM customers c
     JOIN vouchers v ON c.voucher_id = v.id
     JOIN projects p ON v.project_id = p.id
-    WHERE c.id = ? AND c.export_status = 'exported' AND v.distribution_status in ('pending', 'exported', 'failed')`);
+    WHERE c.id = ? AND c.workflow_status IN ('pending', 'exported', 'failed')`);
   return stmt.get(customerId);
 }
 
@@ -1065,14 +1059,12 @@ export {
   getTemplatesForProject,
   setTemplatesForProject,
   exportGridImage,
-  setVoucherDistributed,
+  updateCustomerWorkflowStatus,
   getExportedFilesForCustomer,
-  updateVoucherStatus,
   generateVouchersAndQRCodes,
   getPendingDistribution,
   getSingleCustomerForDistribution,
   exportBlankTemplate,
-  // getPhotoAsBase64,
   setTemplateOverlay,
   removeTemplateOverlay,
   getProjectFileAsBase64,
