@@ -52,6 +52,7 @@ function GridCreator({ customer, projectId, onBack }) {
           base64Data: await window.api.getProjectFileAsBase64(path)
         }))
       );
+
       setEditedPhotos(photosWithData);
     }
 

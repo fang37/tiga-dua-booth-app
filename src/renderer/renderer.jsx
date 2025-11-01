@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
+import { NotificationProvider } from './components/NotificationContext'; 
 import Settings from './components/Settings';
 import ProjectDashboard from './components/ProjectDashboard';
 import EventWorkspace from './components/EventWorkspace';
@@ -80,4 +81,8 @@ function App() {
 
 const container = document.getElementById('app');
 const root = createRoot(container);
-root.render(<App />);
+root.render(
+  <NotificationProvider>
+    <App />
+  </NotificationProvider>
+);

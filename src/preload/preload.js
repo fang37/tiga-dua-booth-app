@@ -31,6 +31,14 @@ contextBridge.exposeInMainWorld('api', {
     stopWatching: () => ipcRenderer.send('stop-watching'),
     onNewPhoto: (callback) => ipcRenderer.on('new-photo-added', (_event, value) => callback(value)),
     onNewEditedPhoto: (callback) => ipcRenderer.on('new-edited-photo-added', (_event, value) => callback(value)),
+    onPhotoRemoved: (callback) => {
+        const channel = 'photo-removed';
+        const listener = (_event, value) => callback(value);
+        ipcRenderer.on(channel, listener);
+        return () => {
+            ipcRenderer.removeListener(channel, listener);
+        };
+    },
 
     // File System & Dialogs
     openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
@@ -39,6 +47,7 @@ contextBridge.exposeInMainWorld('api', {
     // getPhotoAsBase64: (data) => ipcRenderer.invoke('get-photo-as-base64', data),
     getProjectFileAsBase64: (path) => ipcRenderer.invoke('get-project-file-as-base64', path),
     getUserDataFileAsBase64: (path) => ipcRenderer.invoke('get-user-data-file-as-base64', path),
+    scanRawPhotos: (id) => ipcRenderer.invoke('scan-raw-photos', id),
 
     // Template Management
     getAllTemplates: () => ipcRenderer.invoke('get-all-templates'),
@@ -46,8 +55,8 @@ contextBridge.exposeInMainWorld('api', {
     getTemplatesForProject: (data) => ipcRenderer.invoke('get-templates-for-project', data),
     setTemplatesForProject: (data) => ipcRenderer.invoke('set-templates-for-project', data),
     exportBlankTemplate: (data) => ipcRenderer.invoke('export-blank-template', data),
-    setTemplateOverlay : (data) => ipcRenderer.invoke('set-template-overlay', data),
-    removeTemplateOverlay : (data) => ipcRenderer.invoke('remove-template-overlay', data),
+    setTemplateOverlay: (data) => ipcRenderer.invoke('set-template-overlay', data),
+    removeTemplateOverlay: (data) => ipcRenderer.invoke('remove-template-overlay', data),
 
     // API
     distributeToDrive: (data) => ipcRenderer.invoke('distribute-to-drive', data),

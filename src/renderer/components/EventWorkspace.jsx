@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PhotoPreviewModal from './PhotoPreviewModal';
 import BatchDistributeModal from './BatchDistributeModal';
+import { useNotification } from './NotificationContext';
 
 function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
   const [project, setProject] = useState(null);
@@ -19,6 +20,8 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
   const [selectedPhotos, setSelectedPhotos] = useState(new Set());
   const [previewPhoto, setPreviewPhoto] = useState(null);
   const [pinnedPhoto, setPinnedPhoto] = useState(null);
+
+  const { showNotification } = useNotification();
 
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
 
@@ -76,6 +79,11 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
       });
     });
 
+    const cleanupPhotoRemoved = window.api.onPhotoRemoved((filePath) => {
+      console.log(`[UI] Received 'photo-removed' for: ${filePath}`);
+      setUnassignedPhotos(prev => prev.filter(p => p.rawPath !== filePath));
+    });
+
     // Cleanup function: stop watching when the component is unmounted
     return () => {
       window.api.stopWatching();
@@ -112,7 +120,7 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
       setSelectedPhotos(new Set());
       loadData();
     } else {
-      alert(`Error assigning photos: ${result.error}`);
+      showNotification(`Error assigning photos: ${result.error}`, 'error');
     }
   };
 
@@ -128,13 +136,13 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
     if (result) {
       setFoundVoucher(result);
     } else {
-      alert('Voucher not found or has already been redeemed.');
+      showNotification('Voucher not found or has already been redeemed.', 'error');
     }
   };
 
   const handleRedeemVoucher = async () => {
     if (!customerName) {
-      alert('Please enter a customer name.');
+      showNotification('Please enter a customer name.', 'warning');
       return;
     }
 
@@ -160,20 +168,20 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
       setCustomerPhone('');
       setVoucherCode('');
     } else {
-      alert(`Error: ${result.error}`);
+      showNotification(`Error: ${result.error}`, 'error');
     }
   };
 
   const handleDistribute = async (customer) => {
-    alert('Starting distribution process...');
+    showNotification('Starting distribution process...', 'info');
     const result = await window.api.distributeSingleCustomer(customer.id);
 
     if (result.success) {
       fetchCustomers();
-      alert(`Distribution complete for ${customer.name}!`);
+      showNotification(`Distribution complete for ${customer.name}!`, 'success');
     } else {
       fetchCustomers();
-      alert(`Distribution failed: ${result.error}`);
+      showNotification(`Distribution failed: ${result.error}`, 'error');
     }
   };
 
@@ -196,6 +204,12 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
   }
 
   const photoToShow = previewPhoto || pinnedPhoto;
+
+  const handleRefreshRawPhotos = async () => {
+    const photos = await window.api.scanRawPhotos(projectId);
+    setUnassignedPhotos(photos);
+    setPinnedPhoto(null);
+  };
 
   return (
     <div className="workspace-container">
@@ -286,16 +300,19 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
           <div className="unassigned-photos-panel">
             <div className="panel-header">
               <h3>Unassigned Photos ({unassignedPhotos.length})</h3>
-              <button
-                className="btn-icon"
-                title="Open Raw Photos Folder"
-                onClick={() => window.api.openFolder({
-                  basePath: project.folder_path,
-                  subfolder: 'raw'
-                })}
-              >
-                📁
-              </button>
+              <div>
+                <button className="btn-icon" title="Refresh List" onClick={handleRefreshRawPhotos}>🔄</button>
+                <button
+                  className="btn-icon"
+                  title="Open Raw Photos Folder"
+                  onClick={() => window.api.openFolder({
+                    relativeProjectPath: project.folder_path,
+                    subfolder: 'raw'
+                  })}
+                >
+                  📁
+                </button>
+              </div>
             </div>
             <div className="unassigned-content">
               <div className="photo-queue">

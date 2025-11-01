@@ -5,6 +5,7 @@ import Database from 'better-sqlite3';
 import sharp from 'sharp';
 import QRCode from 'qrcode';
 import { getSetting } from './settingsService.js';
+import { generateThumbnail } from './thumbnailService.js';
 
 // Define the path for our database file.
 const dbPath = path.resolve(app.getPath('userData'), 'tigaduabooth.db');
@@ -565,16 +566,16 @@ function getEditedPhotosByCustomerId(customerId) {
     }
 
     const projectsBasePath = getProjectBasePath();
-    // customer.folder_path is relative, construct the absolute path
-    const absoluteCustomerPath = path.join(projectsBasePath, customer.folder_path);
-    const absoluteEditedFolderPath = path.join(absoluteCustomerPath, 'edited');
+    const absoluteEditedFolderPath = path.join(projectsBasePath, customer.folder_path, 'edited');
 
     if (!fs.existsSync(absoluteEditedFolderPath)) return [];
 
-    const files = fs.readdirSync(absoluteEditedFolderPath);
-    return files
-      .filter(file => /\.(jpg|jpeg|png|webp)$/i.test(file))
-      .map(file => path.join(absoluteEditedFolderPath, file));
+    const files = fs.readdirSync(absoluteEditedFolderPath)
+      .filter(file => /\.(jpg|jpeg|png|webp)$/i.test(file));
+
+    return files.map(file => 
+      path.join(customer.folder_path, 'edited', file)
+    );
 
   } catch (error) {
     console.error('Failed to get edited photos by customer ID:', error);
@@ -810,14 +811,22 @@ function setVoucherDistributed({ voucherId, link }) {
 // This function finds all files in the /final folder for a specific voucher
 function getExportedFilesForCustomer({ projectPath, voucherCode }) {
   try {
-    const finalFolderPath = path.join(projectPath, 'final');
-    if (!fs.existsSync(finalFolderPath)) return [];
+    // 1. Get the base path from settings
+    const projectsBasePath = getProjectBasePath();
+    
+    // 2. projectPath is relative, so construct the absolute path
+    const absoluteFinalFolderPath = path.join(projectsBasePath, projectPath, 'final');
 
-    const allFiles = fs.readdirSync(finalFolderPath);
+    if (!fs.existsSync(absoluteFinalFolderPath)) {
+      console.log(`[getExportedFiles] Directory not found, returning empty: ${absoluteFinalFolderPath}`);
+      return [];
+    }
+
+    const allFiles = fs.readdirSync(absoluteFinalFolderPath);
     const customerFiles = allFiles
       .filter(file => file.startsWith(voucherCode + '-'))
-      .map(file => path.join(finalFolderPath, file));
-
+      .map(file => path.join(absoluteFinalFolderPath, file));
+      
     return customerFiles;
   } catch (error) {
     console.error('Failed to find exported files:', error);
@@ -962,6 +971,14 @@ function getPhotoAsBase64(filePath) {
   }
 }
 
+function getMimeType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === '.png') return 'data:image/png;base64,';
+  if (ext === '.webp') return 'data:image/webp;base64,';
+  // Default to JPEG for .jpg and .jpeg
+  return 'data:image/jpeg;base64,';
+}
+
 // FIX 6: Update getPhotoAsBase64 (This is CRITICAL)
 // This function now needs to know which base path to use.
 // We'll create two new functions instead.
@@ -971,7 +988,9 @@ function getProjectFileAsBase64(relativePath) {
     const absolutePath = path.join(projectsBasePath, relativePath);
     if (!fs.existsSync(absolutePath)) return null;
     const imageBuffer = fs.readFileSync(absolutePath);
-    return `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
+    const mimeType = getMimeType(absolutePath);
+    
+    return `${mimeType}${imageBuffer.toString('base64')}`;
   } catch (error) { console.error('Failed to read photo for preview:', error); }
 }
 
@@ -981,8 +1000,38 @@ function getUserDataFileAsBase64(relativePath) {
     const absolutePath = path.join(userDataPath, relativePath);
     if (!fs.existsSync(absolutePath)) return null;
     const imageBuffer = fs.readFileSync(absolutePath);
-    return `data:image/png;base64,${imageBuffer.toString('base64')}`;
+    const mimeType = getMimeType(absolutePath);
+    
+    return `${mimeType}${imageBuffer.toString('base64')}`;
   } catch (error) { console.error('Failed to read photo for preview:', error); }
+}
+
+async function scanRawPhotos(projectId) {
+  try {
+    const project = db.prepare('SELECT folder_path FROM projects WHERE id = ?').get(projectId);
+    if (!project) throw new Error('Project not found');
+
+    const projectsBasePath = getProjectBasePath();
+    const absoluteRawFolderPath = path.join(projectsBasePath, project.folder_path, 'raw');
+
+    if (!fs.existsSync(absoluteRawFolderPath)) return [];
+
+    const files = fs.readdirSync(absoluteRawFolderPath)
+      .filter(file => /\.(jpg|jpeg)$/i.test(file))
+      .map(file => path.join(absoluteRawFolderPath, file));
+
+    const photoData = await Promise.all(
+      files.map(async (rawPath) => {
+        const thumbPath = await generateThumbnail(rawPath);
+        return { rawPath, thumbPath };
+      })
+    );
+    
+    return photoData.filter(p => p.thumbPath);
+  } catch (error) {
+    console.error('Failed to scan raw photos:', error);
+    return [];
+  }
 }
 
 function closeDb() {
@@ -1028,4 +1077,6 @@ export {
   removeTemplateOverlay,
   getProjectFileAsBase64,
   getUserDataFileAsBase64,
+  getProjectBasePath,
+  scanRawPhotos,
 };

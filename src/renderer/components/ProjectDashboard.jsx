@@ -95,7 +95,7 @@ function ProjectDashboard({ onProjectSelect }) {
             <button
               className="btn-secondary btn-small"
               onClick={() => window.api.openFolder({
-                basePath: project.folder_path,
+                relativeProjectPath: project.folder_path,
                 subfolder: 'qrcodes'
               })}
             >

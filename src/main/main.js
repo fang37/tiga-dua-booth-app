@@ -8,7 +8,7 @@ import { app, BrowserWindow, ipcMain, dialog, shell, protocol } from 'electron';
 import path from 'node:path';
 import fs from 'fs';
 import { getSetting, saveSetting } from './services/settingsService.js';
-import { initializeDatabase, createProject, getProjects, getProjectById, findVoucherByCode, assignPhotosToCustomer, getCustomersByProjectId, getPhotosByCustomerId, revertPhotosToRaw, runHealthCheckForProject, saveCroppedImage, generateVouchersForProject, redeemVoucher, getEditedPhotosByCustomerId, getAllTemplates, createTemplate, setTemplatesForProject, getTemplatesForProject, exportGridImage, setVoucherDistributed, getExportedFilesForCustomer, updateVoucherStatus, generateVouchersAndQRCodes, getPendingDistribution, getSingleCustomerForDistribution, exportBlankTemplate, setTemplateOverlay, removeTemplateOverlay, getProjectFileAsBase64, getUserDataFileAsBase64 } from './services/database.js';
+import { initializeDatabase, createProject, getProjects, getProjectById, findVoucherByCode, assignPhotosToCustomer, getCustomersByProjectId, getPhotosByCustomerId, revertPhotosToRaw, runHealthCheckForProject, saveCroppedImage, generateVouchersForProject, redeemVoucher, getEditedPhotosByCustomerId, getAllTemplates, createTemplate, setTemplatesForProject, getTemplatesForProject, exportGridImage, setVoucherDistributed, getExportedFilesForCustomer, updateVoucherStatus, generateVouchersAndQRCodes, getPendingDistribution, getSingleCustomerForDistribution, exportBlankTemplate, setTemplateOverlay, removeTemplateOverlay, getProjectFileAsBase64, getUserDataFileAsBase64, getProjectBasePath, scanRawPhotos } from './services/database.js';
 import { generateThumbnail } from './services/thumbnailService.js';
 import { distributeToDrive } from './services/googleDriveService.js';
 import { triggerBackup } from './services/backupService.js';
@@ -37,9 +37,7 @@ const createWindow = () => {
 
   // Dev/prod switch for loading the app
   const isDev = process.env.NODE_ENV === 'development' || process.env.VITE_DEV_SERVER_URL;
-  const devServerUrl = 'http://localhost:5173';
-  const viteName = process.env.VITE_NAME || 'renderer';
-
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173';
 
   if (isDev) {
     mainWindow.loadURL(devServerUrl);
@@ -47,10 +45,18 @@ const createWindow = () => {
   } else {
     // Load the built Vite index.html from the dist directory
     mainWindow.loadFile(path.join(__dirname, '../renderer/dist/index.html'));
+    // Open DevTools in production to see console.log
+    mainWindow.webContents.openDevTools();
   }
 
-  // Open the DevTools.
-  mainWindow.webContents.openDevTools();
+  // Add keyboard shortcut to toggle DevTools (F12 or Ctrl+Shift+I)
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F12' || (input.control && input.shift && input.key === 'I')) {
+      mainWindow.webContents.toggleDevTools();
+    }
+  });
+
+  return mainWindow;
 };
 
 // This method will be called when Electron has finished
@@ -59,10 +65,23 @@ const createWindow = () => {
 app.whenReady().then(() => {
   protocol.handle('safe-file', (request, callback) => {
     const url = request.url.substr(7);
-    return net.fetch(url)
+    return fetch(url)
   })
 
   initializeDatabase();
+
+  const apiKey = process.env.API_SECRET_KEY;
+  const apiUrl = process.env.API_ENDPOINT;
+  if (!apiKey || !apiUrl) {
+    console.error('FATAL ERROR: API secrets are missing.');
+    console.error('Ensure .env file is next to the executable in production.');
+    
+    // Show a native error message to the user
+    dialog.showErrorBox(
+      'Configuration Error',
+      'API key or endpoint is missing. Please ensure the .env file is in the correct folder and restart the application.'
+    );
+  }
 
   ipcMain.handle('show-item-in-folder', (event, fullPath) => {
     shell.showItemInFolder(fullPath);
@@ -145,13 +164,27 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('open-folder', (event, data) => {
-    let fullPath;
-    if (data.customerFolder) {
-      fullPath = path.join(data.basePath, data.customerFolder, data.subfolder);
-    } else {
-      fullPath = path.join(data.basePath, data.subfolder);
+    try {
+      const basePath = getProjectBasePath();
+      let fullPath;
+
+      if (data.relativeProjectPath) {
+        fullPath = path.join(basePath, data.relativeProjectPath, data.subfolder);
+      } else if (data.customerFolder) {
+        fullPath = path.join(basePath, data.basePath, data.customerFolder, data.subfolder);
+      } else {
+        throw new Error('Invalid data received for open-folder');
+      }
+
+      if (!fs.existsSync(fullPath)) {
+        fs.mkdirSync(fullPath, { recursive: true });
+      }
+
+      shell.openPath(fullPath);
+
+    } catch (error) {
+      console.error('Failed opening folder:', error);
     }
-    shell.openPath(fullPath);
   });
 
   ipcMain.handle('open-folder-dialog', async () => {
@@ -215,27 +248,62 @@ app.whenReady().then(() => {
 
   ipcMain.handle('remove-template-overlay', (event, data) => removeTemplateOverlay(data));
 
+  ipcMain.handle('scan-raw-photos', (e, id) => scanRawPhotos(id));
+
   ipcMain.on('start-watching', (event, projectPath) => {
-    const rawFolderPath = path.join(projectPath, 'raw');
+    const projectsBasePath = getProjectBasePath();
+    const absoluteRawFolderPath = path.join(projectsBasePath, projectPath, 'raw');
 
-    // console.log(`[Watcher] Starting to watch: ${rawFolderPath}`);
+    console.log(`[Watcher Setup] Received request for project path: ${projectPath}`);
+    console.log(`[Watcher Setup] Watching folder: ${absoluteRawFolderPath}`);
 
-    watcher = chokidar.watch(rawFolderPath, {
-      ignored: /^\./, // ignore dotfiles
-      persistent: true
+    if (watcher) {
+      console.log('[Watcher Setup] Closing previous watcher.');
+      watcher.close();
+    }
+
+    watcher = chokidar.watch(absoluteRawFolderPath, {
+      ignored: /^\./,
+      persistent: true,
+      ignoreInitial: false,
+      awaitWriteFinish: {
+        stabilityThreshold: 2000,
+        pollInterval: 100
+      }
+    });
+
+    watcher.on('ready', () => {
+      console.log(`[Watcher Ready] Initial scan complete. Ready for changes.`);
+    });
+
+    watcher.on('all', (eventName, filePath) => {
+      console.log(`[Watcher All Events] Event: '${eventName}', File: ${filePath}`);
     });
 
     watcher.on('add', async (filePath) => {
-      // console.log(`[Watcher] Detected new file: ${filePath}`);
-
-      // Generate a thumbnail for the new photo
-      const thumbPath = await generateThumbnail(filePath);
-
-      // Send an object with both paths to the UI
-      if (thumbPath) {
-        event.sender.send('new-photo-added', { rawPath: filePath, thumbPath });
+      // This 'add' event will now fire for .arw, .jpg, etc.
+      // So our filter inside is more important than ever.
+      if (/\.(jpg|jpeg)$/i.test(filePath)) {
+        console.log(`[Watcher Logic] File is a JPEG. Generating thumbnail...`);
+        try {
+          const thumbDataUrl = await generateThumbnail(filePath);
+          if (thumbDataUrl) {
+            console.log(`[Watcher Logic] Thumbnail generated. Sending 'new-photo-added' to UI.`);
+            event.sender.send('new-photo-added', { rawPath: filePath, thumbPath: thumbDataUrl });
+          }
+        } catch (error) {
+          console.error(`[Watcher Error] Thumbnail generation failed:`, error);
+        }
+      } else {
+        console.log(`[Watcher Logic] File is NOT a JPEG, ignoring: ${filePath}`);
       }
     });
+
+    watcher.on('unlink', (filePath) => {
+      console.log(`[Watcher Event] 'unlink' event detected for: ${filePath}`);
+      event.sender.send('photo-removed', filePath);
+    });
+
   });
 
   ipcMain.on('stop-watching', () => {
@@ -246,6 +314,17 @@ app.whenReady().then(() => {
   });
 
   createWindow();
+
+  // Redirect main process console.log to renderer for easier debugging
+  const originalConsoleLog = console.log;
+  console.log = (...args) => {
+    originalConsoleLog(...args); // Still log to terminal
+    // Also send to renderer process
+    const allWindows = BrowserWindow.getAllWindows();
+    if (allWindows.length > 0) {
+      allWindows[0].webContents.executeJavaScript(`console.log('[Main Process]', ${JSON.stringify(args.join(' '))})`);
+    }
+  };
 
   // Temp for testing
   // createProject({ name: "Andy & Betty's Wedding", event_date: '2025-09-13' });
