@@ -35,7 +35,10 @@ contextBridge.exposeInMainWorld('api', {
     // File System & Dialogs
     openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
     openFolder: (data) => ipcRenderer.invoke('open-folder', data),
-    getPhotoAsBase64: (data) => ipcRenderer.invoke('get-photo-as-base64', data),
+    openFolderDialog: () => ipcRenderer.invoke('open-folder-dialog'),
+    // getPhotoAsBase64: (data) => ipcRenderer.invoke('get-photo-as-base64', data),
+    getProjectFileAsBase64: (path) => ipcRenderer.invoke('get-project-file-as-base64', path),
+    getUserDataFileAsBase64: (path) => ipcRenderer.invoke('get-user-data-file-as-base64', path),
 
     // Template Management
     getAllTemplates: () => ipcRenderer.invoke('get-all-templates'),
@@ -52,6 +55,7 @@ contextBridge.exposeInMainWorld('api', {
     batchDistributeAll: (data) => ipcRenderer.invoke('batch-distribute-all', data),
     distributeSingleCustomer: (customerId) => ipcRenderer.invoke('distribute-single-customer', customerId),
     showItemInFolder: (path) => ipcRenderer.invoke('show-item-in-folder', path),
+    triggerBackup: () => ipcRenderer.invoke('trigger-backup'),
     onBatchProgress: (callback) => {
         const channel = 'batch-progress-update';
         const listener = (_event, value) => callback(value);

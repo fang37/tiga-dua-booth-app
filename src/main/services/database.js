@@ -12,6 +12,12 @@ const db = new Database(dbPath);
 
 // A function to initialize the database tables
 function initializeDatabase() {
+
+  if (!db || !db.open) {
+    db = new Database(dbPath);
+    console.log('Database connection re-opened.');
+  }
+
   const setupSql = `
     CREATE TABLE IF NOT EXISTS projects (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -87,6 +93,10 @@ function initializeDatabase() {
   // console.log('Database has been initialized.');
 }
 
+function getProjectBasePath() {
+  return getSetting('projectBasePath', path.join(app.getPath('home'), 'tiga_dua_booth_projects'));
+}
+
 function seedTemplates() {
   try {
     const stmt = db.prepare('INSERT INTO templates (name, layout_config, background_color) VALUES (?, ?, ?)');
@@ -142,7 +152,7 @@ function createProject({ name, event_date }) {
   const folderName = `${event_date}-${slug}`;
 
   // 2. Define the main projects folder in the user's home directory
-  const projectsBasePath = path.join(app.getPath('home'), 'tiga_dua_booth_projects');
+  const projectsBasePath = getProjectBasePath();
   const projectFolderPath = path.join(projectsBasePath, folderName);
   const rawFolderPath = path.join(projectFolderPath, 'raw');
   const editedFolderPath = path.join(projectFolderPath, 'edited');
@@ -152,11 +162,13 @@ function createProject({ name, event_date }) {
     // The { recursive: true } option creates parent directories if they don't exist.
     fs.mkdirSync(rawFolderPath, { recursive: true });
 
+    const relativeProjectPath = folderName;
+
     // 4. Prepare and run the SQL INSERT statement
     const stmt = db.prepare(
       'INSERT INTO projects (name, event_date, folder_path) VALUES (?, ?, ?)'
     );
-    const info = stmt.run(name, event_date, projectFolderPath);
+    const info = stmt.run(name, event_date, relativeProjectPath);
 
     // console.log(`Successfully created project: ${name} with ID: ${info.lastInsertRowid}`);
 
@@ -194,7 +206,7 @@ function findVoucherByCode({ projectId, voucherCode }) {
 
 function redeemVoucher({ voucherCode, name, email, phoneNumber }) { // <-- phoneNumber is now a parameter
   const voucherQuery = `
-    SELECT v.id as voucher_id, p.folder_path as project_folder
+    SELECT v.id as voucher_id, p.folder_path as relative_project_path
     FROM vouchers v
     JOIN projects p ON v.project_id = p.id
     WHERE v.code = ? AND v.status = 'available'
@@ -207,7 +219,10 @@ function redeemVoucher({ voucherCode, name, email, phoneNumber }) { // <-- phone
     return { success: false, error: errorMsg };
   }
 
-  const customerFolderPath = path.join(voucher.project_folder, voucherCode);
+  const projectsBasePath = getProjectBasePath();
+  const absoluteProjectPath = path.join(projectsBasePath, voucher.relative_project_path); // Construct absolute path
+
+  const customerFolderPath = path.join(absoluteProjectPath, voucherCode);
   const customerEditedPath = path.join(customerFolderPath, 'edited');
   fs.mkdirSync(customerFolderPath, { recursive: true });
   fs.mkdirSync(customerEditedPath, { recursive: true });
@@ -216,13 +231,15 @@ function redeemVoucher({ voucherCode, name, email, phoneNumber }) { // <-- phone
     const updateVoucherStmt = db.prepare("UPDATE vouchers SET status = 'redeemed' WHERE id = ?");
     updateVoucherStmt.run(voucher.voucher_id);
 
+    const relativeCustomerPath = path.join(voucher.relative_project_path, voucherCode);
+
     // 1. Update the INSERT statement to include phone_number
     const insertCustomerStmt = db.prepare(`
       INSERT INTO customers (voucher_id, name, email, phone_number, folder_path)
       VALUES (?, ?, ?, ?, ?)
     `);
     // 2. Pass the phoneNumber variable into the run command
-    const info = insertCustomerStmt.run(voucher.voucher_id, name, email, phoneNumber, customerFolderPath);
+    const info = insertCustomerStmt.run(voucher.voucher_id, name, email, phoneNumber, relativeCustomerPath);
 
     return info.lastInsertRowid;
   });
@@ -278,13 +295,16 @@ function generateVouchersForProject({ projectId, quantity }) {
 
 async function generateVouchersAndQRCodes({ projectId, quantity }) {
   try {
-    const project = db.prepare('SELECT folder_path FROM projects WHERE id = ?').get(projectId);
+    const project = db.prepare('SELECT folder_path as relative_project_path FROM projects WHERE id = ?').get(projectId);
     if (!project) throw new Error('Project not found');
 
     const qrCodeBaseUrl = getSetting('qrCodeBaseUrl');
     if (!qrCodeBaseUrl) throw new Error('QR Code Base URL is not set in Settings.');
 
-    const qrCodeFolderPath = path.join(project.folder_path, 'qrcodes');
+    const projectsBasePath = getProjectBasePath();
+    const absoluteProjectPath = path.join(projectsBasePath, project.relative_project_path);
+
+    const qrCodeFolderPath = path.join(absoluteProjectPath, 'qrcodes');
     if (!fs.existsSync(qrCodeFolderPath)) {
       fs.mkdirSync(qrCodeFolderPath, { recursive: true });
     }
@@ -300,16 +320,19 @@ async function generateVouchersAndQRCodes({ projectId, quantity }) {
       for (let i = 0; i < quantity; i++) {
         const code = generateVoucherCode(); // Assumes your helper function exists
         const fullUrl = `${qrCodeBaseUrl}${code}`;
+        const qrCodeFileName = `${code}.png`;
+        const absoluteQrCodePath = path.join(qrCodeFolderPath, qrCodeFileName);
         const qrCodePath = path.join(qrCodeFolderPath, `${code}.png`);
 
-        QRCode.toFile(qrCodePath, fullUrl, {
+        QRCode.toFile(absoluteQrCodePath, fullUrl, {
           color: {
             dark: qrColorDark,
             light: qrColorLight
           }
         });
 
-        insertStmt.run(projectId, code, qrCodePath);
+        const relativeQrCodePath = path.join(project.relative_project_path, 'qrcodes', qrCodeFileName);
+        insertStmt.run(projectId, code, relativeQrCodePath);
       }
     });
 
@@ -327,9 +350,9 @@ function assignPhotosToCustomer({ customerId, photoPaths }) {
     // Query to get all the necessary info for renaming
     const query = `
       SELECT
-        c.folder_path as customer_folder,
+        c.folder_path as relative_customer_path,
         v.code as voucher_code,
-        p.name as project_name,
+        p.name as project_name, p.folder_path as relative_project_path,
         p.event_date as event_date
       FROM customers c
       JOIN vouchers v ON c.voucher_id = v.id
@@ -338,6 +361,9 @@ function assignPhotosToCustomer({ customerId, photoPaths }) {
     `;
     const info = db.prepare(query).get(customerId);
     if (!info) throw new Error('Customer not found.');
+
+    const projectsBasePath = getProjectBasePath();
+    const absoluteCustomerPath = path.join(projectsBasePath, info.relative_customer_path);
 
     const countStmt = db.prepare('SELECT COUNT(id) as count FROM photos WHERE customer_id = ?');
     let currentPhotoCount = countStmt.get(customerId).count;
@@ -360,8 +386,8 @@ function assignPhotosToCustomer({ customerId, photoPaths }) {
         const baseFileName = `${filePrefix}-${info.voucher_code}-${sequence}`;
 
         // --- JPEG FILE HANDLING ---
-        let jpegDestPath = path.join(info.customer_folder, `${baseFileName}.jpg`);
         let jpegFileName = `${baseFileName}.jpg`;
+        let jpegDestPath = path.join(absoluteCustomerPath, jpegFileName);
         let jpegSuffix = 1;
         // Check if JPEG destination exists and add suffix if needed
         while (fs.existsSync(jpegDestPath)) {
@@ -370,20 +396,23 @@ function assignPhotosToCustomer({ customerId, photoPaths }) {
           jpegSuffix++;
         }
         fs.renameSync(sourcePath, jpegDestPath);
-        insertPhotoStmt.run(customerId, jpegDestPath);
+
+        const relativeJpegPath = path.join(info.relative_customer_path, jpegFileName);
+        insertPhotoStmt.run(customerId, relativeJpegPath);
 
         // --- RAW FILE HANDLING ---
         const rawFileExtension = '.arw'; // Or your specific RAW extension
         const rawSourcePath = sourcePath.replace(/\.(jpg|jpeg)$/i, rawFileExtension);
-        
+
         if (fs.existsSync(rawSourcePath)) {
-          let rawDestPath = path.join(info.customer_folder, `${baseFileName}${rawFileExtension}`);
+          const rawFileExtension = path.extname(rawSourcePath);
           let rawFileName = `${baseFileName}${rawFileExtension}`;
+          let rawDestPath = path.join(absoluteCustomerPath, rawFileName);
           let rawSuffix = 1;
-           // Check if RAW destination exists and add suffix if needed
+          // Check if RAW destination exists and add suffix if needed
           while (fs.existsSync(rawDestPath)) {
             // Use the same suffix number as the JPEG if possible, but still check
-            const suffixToUse = Math.max(jpegSuffix -1, rawSuffix); // Ensure suffix is at least 1 if JPEG needed one
+            const suffixToUse = Math.max(jpegSuffix - 1, rawSuffix); // Ensure suffix is at least 1 if JPEG needed one
             rawFileName = `${baseFileName}_${suffixToUse}${rawFileExtension}`;
             rawDestPath = path.join(info.customer_folder, rawFileName);
             rawSuffix = suffixToUse + 1; // Increment for the next potential check
@@ -410,7 +439,11 @@ function getPhotosByCustomerId(customerId) {
 
 function revertPhotosToRaw({ photoIds, projectFolderPath }) {
   try {
+    const projectsBasePath = getProjectBasePath();
     const rawFolderPath = path.join(projectFolderPath, 'raw');
+    const absoluteProjectPath = path.join(projectsBasePath, projectFolderPath);
+    const absoluteRawFolderPath = path.join(absoluteProjectPath, 'raw');
+
     const getStmt = db.prepare('SELECT file_path FROM photos WHERE id = ?');
     const deleteStmt = db.prepare('DELETE FROM photos WHERE id = ?');
 
@@ -418,8 +451,8 @@ function revertPhotosToRaw({ photoIds, projectFolderPath }) {
       for (const id of photoIds) {
         const photo = getStmt.get(id);
         if (photo) {
-          const oldPath = photo.file_path;
-          const newPath = path.join(rawFolderPath, path.basename(oldPath));
+          const oldPath = path.join(projectsBasePath, photo.file_path);
+          const newPath = path.join(absoluteRawFolderPath, path.basename(oldPath));
 
           if (fs.existsSync(oldPath)) {
             fs.renameSync(oldPath, newPath);
@@ -440,6 +473,7 @@ function revertPhotosToRaw({ photoIds, projectFolderPath }) {
 
 function runHealthCheckForProject(projectId) {
   try {
+    const projectsBasePath = getProjectBasePath();
     // Get all photo records for all customers in the project
     const stmt = db.prepare(`
       SELECT p.id, p.file_path 
@@ -452,7 +486,8 @@ function runHealthCheckForProject(projectId) {
 
     const missingPhotoIds = [];
     for (const photo of photos) {
-      if (!fs.existsSync(photo.file_path)) {
+      const absolutePhotoPath = path.join(projectsBasePath, photo.file_path);
+      if (!fs.existsSync(absolutePhotoPath)) {
         missingPhotoIds.push(photo.id);
       }
     }
@@ -499,9 +534,12 @@ function getCustomersByProjectId(projectId) {
 
 function saveCroppedImage({ projectPath, imageData }) {
   try {
-    const croppedFolderPath = path.join(projectPath, 'cropped');
-    if (!fs.existsSync(croppedFolderPath)) {
-      fs.mkdirSync(croppedFolderPath, { recursive: true });
+    const projectsBasePath = getProjectBasePath();
+    const absoluteProjectPath = path.join(projectsBasePath, projectPath);
+    const absoluteCroppedFolderPath = path.join(absoluteProjectPath, 'cropped');
+
+    if (!fs.existsSync(absoluteCroppedFolderPath)) {
+      fs.mkdirSync(absoluteCroppedFolderPath, { recursive: true });
     }
 
     // Image data is a Base64 string, so we need to decode it
@@ -509,11 +547,10 @@ function saveCroppedImage({ projectPath, imageData }) {
     const imageBuffer = Buffer.from(base64Data, 'base64');
 
     const fileName = `cropped-${Date.now()}.jpg`;
-    const filePath = path.join(croppedFolderPath, fileName);
+    const absoluteFilePath = path.join(absoluteCroppedFolderPath, fileName);
+    fs.writeFileSync(absoluteFilePath, imageBuffer);
 
-    fs.writeFileSync(filePath, imageBuffer);
-
-    return { success: true, filePath };
+    return { success: true, filePath: absoluteFilePath };
   } catch (error) {
     console.error('Failed to save cropped image:', error);
     return { success: false, error: error.message };
@@ -527,15 +564,17 @@ function getEditedPhotosByCustomerId(customerId) {
       throw new Error('Customer not found');
     }
 
-    const editedFolderPath = path.join(customer.folder_path, 'edited');
-    if (!fs.existsSync(editedFolderPath)) {
-      return []; // No edited folder exists for this customer yet
-    }
+    const projectsBasePath = getProjectBasePath();
+    // customer.folder_path is relative, construct the absolute path
+    const absoluteCustomerPath = path.join(projectsBasePath, customer.folder_path);
+    const absoluteEditedFolderPath = path.join(absoluteCustomerPath, 'edited');
 
-    const files = fs.readdirSync(editedFolderPath);
+    if (!fs.existsSync(absoluteEditedFolderPath)) return [];
+
+    const files = fs.readdirSync(absoluteEditedFolderPath);
     return files
       .filter(file => /\.(jpg|jpeg|png|webp)$/i.test(file))
-      .map(file => path.join(editedFolderPath, file));
+      .map(file => path.join(absoluteEditedFolderPath, file));
 
   } catch (error) {
     console.error('Failed to get edited photos by customer ID:', error);
@@ -547,27 +586,39 @@ function getAllTemplates() {
   return db.prepare('SELECT * FROM templates ORDER BY name').all();
 }
 
-function createTemplate({ name, layout_config, background_color}) {
+function createTemplate({ name, layout_config, background_color }) {
+  let config = JSON.parse(layout_config);
+
   const transaction = db.transaction(() => {
+    const originalWatermarkPath = config.watermark?.path;
+
+    if (config.watermark) {
+      config.watermark.path = '';
+    }
+
     const insertStmt = db.prepare('INSERT INTO templates (name, layout_config, background_color) VALUES (?, ?, ?)');
-    const info = insertStmt.run(name, JSON.stringify(layout_config), background_color);
+    const info = insertStmt.run(name, JSON.stringify(config), background_color);
     const newTemplateId = info.lastInsertRowid;
 
-    if (layout_config.watermark && layout_config.watermark.path) {
-      const sourcePath = layout_config.watermark.path;
+    if (originalWatermarkPath) {
+      const sourcePath = originalWatermarkPath;
       const templateAssetsDir = path.join(app.getPath('userData'), 'template_assets', String(newTemplateId));
       if (!fs.existsSync(templateAssetsDir)) {
         fs.mkdirSync(templateAssetsDir, { recursive: true });
       }
 
       const destFileName = `watermark${path.extname(sourcePath)}`;
+      const absoluteDestPath = path.join(templateAssetsDir, destFileName);
       const destPath = path.join(templateAssetsDir, destFileName);
-      fs.copyFileSync(sourcePath, destPath);
+      fs.copyFileSync(sourcePath, absoluteDestPath);
 
-      // Step 3: Update the template record with the new, safe path
-      layout_config.watermark.path = destPath; // Update the path in the config object
+      // 6. Update the config object with the NEW, SAFE, RELATIVE path
+      const relativeDestPath = path.join('template_assets', String(newTemplateId), destFileName);
+      config.watermark.path = relativeDestPath;
+
+      // 7. Save the final config to the database
       const updateStmt = db.prepare('UPDATE templates SET layout_config = ? WHERE id = ?');
-      updateStmt.run(JSON.stringify(layout_config), newTemplateId);
+      updateStmt.run(JSON.stringify(config), newTemplateId);
     }
 
     return { success: true, id: newTemplateId };
@@ -627,7 +678,11 @@ function removeTemplateOverlay(templateId) {
 
 async function exportGridImage({ projectPath, imagePaths, template, customerId }) {
   try {
-    const finalFolderPath = path.join(projectPath, 'final');
+    const projectsBasePath = getProjectBasePath();
+    const userDataPath = app.getPath('userData');
+
+    const absoluteProjectPath = path.join(projectsBasePath, projectPath);
+    const finalFolderPath = path.join(absoluteProjectPath, 'final');
     if (!fs.existsSync(finalFolderPath)) {
       fs.mkdirSync(finalFolderPath, { recursive: true });
     }
@@ -706,24 +761,28 @@ async function exportGridImage({ projectPath, imagePaths, template, customerId }
     const finalCompositeLayers = [];
 
     // Add overlay to the list if it exists
-    if (template.overlay_image_path && fs.existsSync(template.overlay_image_path)) {
-      finalCompositeLayers.push({
-        input: template.overlay_image_path,
-        top: 0,
-        left: 0,
-      });
+    if (template.overlay_image_path) {
+      // Construct absolute path from user data
+      const absoluteOverlayPath = path.join(userDataPath, template.overlay_image_path);
+      if (fs.existsSync(absoluteOverlayPath)) {
+        finalCompositeLayers.push({ input: absoluteOverlayPath, top: 0, left: 0 });
+      }
     }
 
     // Prepare the watermark composite operation (if it exists)
     const watermarkConfig = layout.watermark;
-    if (watermarkConfig && watermarkConfig.path && fs.existsSync(watermarkConfig.path)) {
-      const watermarkWidth = Math.round(canvasWidthPx * (watermarkConfig.size / 100));
-      const watermarkBuffer = await sharp(watermarkConfig.path).resize({ width: watermarkWidth }).toBuffer();
-      const watermarkMeta = await sharp(watermarkBuffer).metadata();
-      const left = Math.round((canvasWidthPx / 100) * watermarkConfig.position.x - (watermarkMeta.width / 2));
-      const top = Math.round((canvasHeightPx / 100) * watermarkConfig.position.y - (watermarkMeta.height / 2));
-      // Add the watermark to our list of operations
-      finalCompositeLayers.push({ input: watermarkBuffer, top, left });
+    if (watermarkConfig && watermarkConfig.path) {
+      const absoluteWatermarkPath = path.join(userDataPath, watermarkConfig.path);
+
+      if (fs.existsSync(absoluteWatermarkPath)) {
+        const watermarkWidth = Math.round(canvasWidthPx * (watermarkConfig.size / 100));
+        const watermarkBuffer = await sharp(watermarkConfig.path).resize({ width: watermarkWidth }).toBuffer();
+        const watermarkMeta = await sharp(watermarkBuffer).metadata();
+        const left = Math.round((canvasWidthPx / 100) * watermarkConfig.position.x - (watermarkMeta.width / 2));
+        const top = Math.round((canvasHeightPx / 100) * watermarkConfig.position.y - (watermarkMeta.height / 2));
+        // Add the watermark to our list of operations
+        finalCompositeLayers.push({ input: watermarkBuffer, top, left });
+      }
     }
 
     await sharp(baseImage)
@@ -871,17 +930,21 @@ async function exportBlankTemplate(template) {
 
 function setTemplateOverlay({ templateId, sourcePath }) {
   try {
+    const templateAssetsDir = path.join(app.getPath('userData'), 'template_assets', String(templateId));
     const templateDir = path.join(app.getPath('userData'), 'template_assets', String(templateId));
     if (!fs.existsSync(templateDir)) {
       fs.mkdirSync(templateDir, { recursive: true });
     }
 
-    const destPath = path.join(templateDir, 'overlay.png');
-    fs.copyFileSync(sourcePath, destPath); // Copy the file
+    const absoluteDestPath = path.join(templateAssetsDir, 'overlay.png');
+    fs.copyFileSync(sourcePath, absoluteDestPath);
+
+    // Save relative path: template_assets/ID/overlay.png
+    const relativeDestPath = path.join('template_assets', String(templateId), 'overlay.png');
 
     // Save the new path to the database
-    db.prepare('UPDATE templates SET overlay_image_path = ? WHERE id = ?').run(destPath, templateId);
-    return { success: true, path: destPath };
+    db.prepare('UPDATE templates SET overlay_image_path = ? WHERE id = ?').run(relativeDestPath, templateId);
+    return { success: true, path: relativeDestPath };
   } catch (error) {
     console.error('Failed to set template overlay:', error);
     return { success: false, error: error.message };
@@ -899,9 +962,41 @@ function getPhotoAsBase64(filePath) {
   }
 }
 
+// FIX 6: Update getPhotoAsBase64 (This is CRITICAL)
+// This function now needs to know which base path to use.
+// We'll create two new functions instead.
+function getProjectFileAsBase64(relativePath) {
+  try {
+    const projectsBasePath = getProjectBasePath();
+    const absolutePath = path.join(projectsBasePath, relativePath);
+    if (!fs.existsSync(absolutePath)) return null;
+    const imageBuffer = fs.readFileSync(absolutePath);
+    return `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
+  } catch (error) { console.error('Failed to read photo for preview:', error); }
+}
+
+function getUserDataFileAsBase64(relativePath) {
+  try {
+    const userDataPath = app.getPath('userData');
+    const absolutePath = path.join(userDataPath, relativePath);
+    if (!fs.existsSync(absolutePath)) return null;
+    const imageBuffer = fs.readFileSync(absolutePath);
+    return `data:image/png;base64,${imageBuffer.toString('base64')}`;
+  } catch (error) { console.error('Failed to read photo for preview:', error); }
+}
+
+function closeDb() {
+  if (db && db.open) {
+    db.close();
+    console.log('Database connection closed.');
+  }
+}
+
 // Export the database instance and the setup function using ES Module syntax
 export {
   db,
+  dbPath,
+  closeDb,
   initializeDatabase,
   createProject,
   generateVouchersForProject,
@@ -928,7 +1023,9 @@ export {
   getPendingDistribution,
   getSingleCustomerForDistribution,
   exportBlankTemplate,
-  getPhotoAsBase64,
+  // getPhotoAsBase64,
   setTemplateOverlay,
-  removeTemplateOverlay
+  removeTemplateOverlay,
+  getProjectFileAsBase64,
+  getUserDataFileAsBase64,
 };

@@ -98,7 +98,7 @@ function TemplateManager({ onBack }) {
     if (sourcePath) {
       const result = await window.api.setTemplateOverlay({ templateId, sourcePath });
       setOverlayPath(result.path);
-      const data = await window.api.getPhotoAsBase64(result.path);
+      const data = await window.api.getUserDataFileAsBase64(result.path);
       setOverlayPreviewData(data);
       fetchTemplates();
     }
@@ -134,17 +134,17 @@ function TemplateManager({ onBack }) {
       setWatermarkSize(config.watermark.size || 80);
       setWatermarkOpacity(config.watermark.opacity || 0.5);
       setWatermarkPosition(config.watermark.position || { x: 50, y: 50 });
-      const data = await window.api.getPhotoAsBase64(config.watermark.path);
+      const data = await window.api.getUserDataFileAsBase64(config.watermark.path);
       setWatermarkPreviewData(data);
     } else {
       setWatermarkPath('');
       setWatermarkPreviewData(null);
     }
 
-    setOverlayPath(template.overlay_image_path || '');
     if (template.overlay_image_path) {
+      setOverlayPath(template.overlay_image_path);
       // Fetch the Base64 data for the preview
-      const data = await window.api.getPhotoAsBase64(template.overlay_image_path);
+      const data = await window.api.getUserDataFileAsBase64(template.overlay_image_path);
       setOverlayPreviewData(data);
     } else {
       setOverlayPreviewData(null);

@@ -62,11 +62,17 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
     loadData()
 
     // Listen for new photos from the main process
-    window.api.onNewPhoto((photo) => {
+    window.api.onNewPhoto(async (photo) => {
+      // Photo.thumbPath is already Base64 from the thumbnail service
+      // But photo.rawPath is now relative, so we must fetch its Base64 for the pinned preview
+      const base64Data = await window.api.getProjectFileAsBase64(photo.rawPath);
+      const newPhoto = {
+        ...photo,
+        base64Data, // Store the full-res Base64 for pinning
+      };
       setUnassignedPhotos(prevPhotos => {
-        // Avoid duplicates based on the original raw path
         const isAlreadyListed = prevPhotos.some(p => p.rawPath === photo.rawPath);
-        return isAlreadyListed ? prevPhotos : [...prevPhotos, photo];
+        return isAlreadyListed ? prevPhotos : [...prevPhotos, newPhoto];
       });
     });
 
@@ -77,9 +83,8 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
     };
   }, [projectId]);
 
-  const handleTogglePhotoSelection = async (photo) => {
-    const base64Data = await window.api.getPhotoAsBase64(photo.rawPath);
-    setPinnedPhoto(base64Data);
+  const handleTogglePhotoSelection = (photo) => {
+    setPinnedPhoto(photo.base64Data);
 
     const newSelection = new Set(selectedPhotos);
     if (newSelection.has(photo)) {
@@ -173,7 +178,7 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
   };
 
   const handleMouseEnterPreview = async (rawPath) => {
-    const base64Data = await window.api.getPhotoAsBase64(rawPath);
+    const base64Data = await window.api.getProjectFileAsBase64(rawPath);
     setPreviewPhoto(base64Data);
   };
 

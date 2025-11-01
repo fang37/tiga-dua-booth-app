@@ -10,7 +10,7 @@ function PhotoPreviewModal({ customer, project, onClose, onRevert, onSetActive, 
                 const photosWithData = await Promise.all(
                     photoList.map(async (photo) => ({
                         ...photo,
-                        base64Data: await window.api.getPhotoAsBase64(photo.file_path)
+                        base64Data: await window.api.getProjectFileAsBase64(photo.file_path)
                     }))
                 );
                 setPhotos(photosWithData);

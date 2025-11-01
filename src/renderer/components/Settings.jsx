@@ -4,6 +4,8 @@ function Settings({ onBack }) {
   const [qrCodeBaseUrl, setQrCodeBaseUrl] = useState('');
   const [qrColorDark, setQrColorDark] = useState('#444341');
   const [qrColorLight, setQrColorLight] = useState('#00000000');
+  const [projectBasePath, setProjectBasePath] = useState('');
+  const [isBackingUp, setIsBackingUp] = useState(false);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -14,20 +16,32 @@ function Settings({ onBack }) {
 
       // Fetch colors, using defaults if not found
       const dark = await window.api.getSetting('qrColorDark', '#444341');
-      const light = await window.api.getSetting('qrColorLight', '#00000000');
       setQrColorDark(dark);
+
+      const light = await window.api.getSetting('qrColorLight', '#00000000');
       setQrColorLight(light);
+
+      const base = await window.api.getSetting('projectBasePath');
+      if (base) setProjectBasePath(base);
     };
     fetchSettings();
   }, []);
 
- const handleSave = async () => {
+  const handleBrowseBasePath = async () => {
+    const path = await window.api.openFolderDialog();
+    if (path) {
+      setProjectBasePath(path);
+    }
+  };
+
+  const handleSave = async () => {
     try {
       // Run all save operations concurrently
       const results = await Promise.all([
         window.api.saveSetting({ key: 'qrCodeBaseUrl', value: qrCodeBaseUrl }),
         window.api.saveSetting({ key: 'qrColorDark', value: qrColorDark }),
-        window.api.saveSetting({ key: 'qrColorLight', value: qrColorLight })
+        window.api.saveSetting({ key: 'qrColorLight', value: qrColorLight }),
+        window.api.saveSetting({ key: 'projectBasePath', value: projectBasePath }),
       ]);
 
       // Check if ALL operations were successful
@@ -45,10 +59,36 @@ function Settings({ onBack }) {
     }
   };
 
+  const handleBackup = async () => {
+    setIsBackingUp(true);
+    const result = await window.api.triggerBackup();
+    if (result.success) {
+      alert(`Backup successful! File saved to Google Drive as ${result.fileName}`);
+    } else {
+      alert(`Backup failed: ${result.error}`);
+    }
+    setIsBackingUp(false);
+  };
+
   return (
     <div className="settings-container">
       <button className="btn-secondary back-btn" onClick={onBack}>&larr; Back</button>
       <h1>Settings</h1>
+
+      <div className="setting-item">
+        <label htmlFor="base-path">Project Base Path</label>
+        <p>The main folder where all your `tiga_dua_booth_projects` are stored.</p>
+        <div className="file-input-wrapper">
+          <input
+            type="text"
+            id="base-path"
+            value={projectBasePath}
+            onChange={(e) => setProjectBasePath(e.target.value)}
+            placeholder="e.g., C:\Users\YourName\Documents"
+          />
+          <button type="button" onClick={handleBrowseBasePath}>Browse</button>
+        </div>
+      </div>
 
       <div className="setting-item">
         <label htmlFor="qr-url">QR Code Base URL</label>
@@ -68,23 +108,35 @@ function Settings({ onBack }) {
         <div className="form-grid">
           <div>
             <label className="sub-label">Dark Color</label>
-            <input 
+            <input
               type="text" // Change type to text
-              value={qrColorDark} 
-              onChange={(e) => setQrColorDark(e.target.value)} 
+              value={qrColorDark}
+              onChange={(e) => setQrColorDark(e.target.value)}
               placeholder="#444341"
             />
           </div>
           <div>
             <label className="sub-label">Light Color (Background)</label>
-            <input 
+            <input
               type="text" // Change type to text
-              value={qrColorLight} 
+              value={qrColorLight}
               onChange={(e) => setQrColorLight(e.target.value)}
               placeholder="#00000000" // Example for transparent
             />
           </div>
         </div>
+      </div>
+
+      <div className="setting-item">
+        <label>Database Backup & Restore</label>
+        <p>Save your database (projects, customers, templates) to your Google Drive.</p>
+        <button 
+          className="btn-primary" 
+          onClick={handleBackup} 
+          disabled={isBackingUp}
+        >
+          {isBackingUp ? 'Backing up...' : 'Backup Database Now'}
+        </button>
       </div>
 
       <button className="btn-primary" onClick={handleSave}>Save Settings</button>

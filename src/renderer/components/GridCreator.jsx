@@ -49,7 +49,7 @@ function GridCreator({ customer, projectId, onBack }) {
       const photosWithData = await Promise.all(
         photoPaths.map(async (path) => ({
           originalPath: path,
-          base64Data: await window.api.getPhotoAsBase64(path)
+          base64Data: await window.api.getProjectFileAsBase64(path)
         }))
       );
       setEditedPhotos(photosWithData);
@@ -84,15 +84,15 @@ function GridCreator({ customer, projectId, onBack }) {
 
     // Fetch the overlay Base64 data when a template is selected
     if (template.overlay_image_path) {
-      const data = await window.api.getPhotoAsBase64(template.overlay_image_path);
+      const data = await window.api.getUserDataFileAsBase64(template.overlay_image_path);
       setOverlayPreviewData(data);
     } else {
       setOverlayPreviewData(null);
     }
 
     if (config.watermark?.path) {
-      const watermarkData = await window.api.getPhotoAsBase64(config.watermark.path);
-      setWatermarkPreviewData(watermarkData);
+      const data = await window.api.getUserDataFileAsBase64(config.watermark.path);
+      setWatermarkPreviewData(data);
     } else {
       setWatermarkPreviewData(null);
     }
@@ -113,7 +113,7 @@ function GridCreator({ customer, projectId, onBack }) {
   };
 
   const handleOpenCropper = async (photoPath, gridIndex = null) => {
-    const base64Data = await window.api.getPhotoAsBase64(photoPath);
+    const base64Data = await window.api.getProjectFileAsBase64(photoPath);
     if (base64Data) {
       setCropImage({
         path: photoPath, // Keep the original path for saving

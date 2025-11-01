@@ -8,9 +8,10 @@ import { app, BrowserWindow, ipcMain, dialog, shell, protocol } from 'electron';
 import path from 'node:path';
 import fs from 'fs';
 import { getSetting, saveSetting } from './services/settingsService.js';
-import { initializeDatabase, createProject, getProjects, getProjectById, findVoucherByCode, assignPhotosToCustomer, getCustomersByProjectId, getPhotosByCustomerId, revertPhotosToRaw, runHealthCheckForProject, saveCroppedImage, generateVouchersForProject, redeemVoucher, getEditedPhotosByCustomerId, getAllTemplates, createTemplate, setTemplatesForProject, getTemplatesForProject, exportGridImage, setVoucherDistributed, getExportedFilesForCustomer, updateVoucherStatus, generateVouchersAndQRCodes, getPendingDistribution, getSingleCustomerForDistribution, exportBlankTemplate, getPhotoAsBase64, setTemplateOverlay, removeTemplateOverlay } from './services/database.js';
+import { initializeDatabase, createProject, getProjects, getProjectById, findVoucherByCode, assignPhotosToCustomer, getCustomersByProjectId, getPhotosByCustomerId, revertPhotosToRaw, runHealthCheckForProject, saveCroppedImage, generateVouchersForProject, redeemVoucher, getEditedPhotosByCustomerId, getAllTemplates, createTemplate, setTemplatesForProject, getTemplatesForProject, exportGridImage, setVoucherDistributed, getExportedFilesForCustomer, updateVoucherStatus, generateVouchersAndQRCodes, getPendingDistribution, getSingleCustomerForDistribution, exportBlankTemplate, setTemplateOverlay, removeTemplateOverlay, getProjectFileAsBase64, getUserDataFileAsBase64 } from './services/database.js';
 import { generateThumbnail } from './services/thumbnailService.js';
 import { distributeToDrive } from './services/googleDriveService.js';
+import { triggerBackup } from './services/backupService.js';
 import { sendLinkToMapper } from './services/apiService.js';
 import { processDistributionForCustomer } from './services/distributionService.js';
 import started from 'electron-squirrel-startup';
@@ -153,6 +154,13 @@ app.whenReady().then(() => {
     shell.openPath(fullPath);
   });
 
+  ipcMain.handle('open-folder-dialog', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      properties: ['openDirectory'],
+    });
+    return canceled ? null : filePaths[0];
+  });
+
   ipcMain.handle('get-templates-for-project', (event, data) => getTemplatesForProject(data));
 
   ipcMain.handle('set-templates-for-project', (event, data) => setTemplatesForProject(data));
@@ -170,6 +178,8 @@ app.whenReady().then(() => {
   ipcMain.handle('get-setting', (event, key) => getSetting(key));
 
   ipcMain.handle('save-setting', (event, data) => saveSetting(data));
+
+  ipcMain.handle('trigger-backup', async () => { return triggerBackup(); });
 
   ipcMain.handle('batch-distribute-all', async (event, projectId) => {
     const pendingJobs = getPendingDistribution(projectId);
@@ -195,8 +205,12 @@ app.whenReady().then(() => {
 
   ipcMain.handle('set-template-overlay', (event, data) => setTemplateOverlay(data));
 
-  ipcMain.handle('get-photo-as-base64', async (event, id) => {
-    return getPhotoAsBase64(id);
+  ipcMain.handle('get-project-file-as-base64', async (event, id) => {
+    return getProjectFileAsBase64(id);
+  });
+
+  ipcMain.handle('get-user-data-file-as-base64', async (event, id) => {
+    return getUserDataFileAsBase64(id);
   });
 
   ipcMain.handle('remove-template-overlay', (event, data) => removeTemplateOverlay(data));

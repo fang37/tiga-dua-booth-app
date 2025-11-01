@@ -11,7 +11,7 @@ const TOKEN_PATH = path.join(app.getPath('userData'), 'token.json');
 /**
  * A more robust authorization function.
  */
-async function authorize() {
+export async function authorize() {
   try {
     const credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH));
     const { client_secret, client_id, redirect_uris } = credentials.installed;
