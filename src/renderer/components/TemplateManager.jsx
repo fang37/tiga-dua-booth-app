@@ -22,6 +22,8 @@ function TemplateManager({ onBack }) {
   const [overlayPath, setOverlayPath] = useState('');
   const [overlayPreviewData, setOverlayPreviewData] = useState(null);
 
+  const [printSize, setPrintSize] = useState('full_4r');
+
   const fetchTemplates = async () => {
     const tpls = await window.api.getAllTemplates();
     setTemplates(tpls);
@@ -64,6 +66,7 @@ function TemplateManager({ onBack }) {
       print_height_mm: heightMm,
       grid_aspect_ratio: `${widthMm} / ${heightMm}`, // For the preview container
       crop_aspect_ratio: cellWidth / cellHeight,    // The crucial value for the cropper
+      print_size: printSize,
       watermark: {
         path: watermarkPath,
         size: watermarkSize,
@@ -129,6 +132,7 @@ function TemplateManager({ onBack }) {
     setHeightMm(config.print_height_mm);
     setPaddingMm(config.padding_mm);
     setBackgroundColor(template.background_color);
+    setPrintSize(config.print_size || 'full_4r');
     if (config.watermark && config.watermark.path) {
       setWatermarkPath(config.watermark.path || '');
       setWatermarkSize(config.watermark.size || 80);
@@ -246,6 +250,18 @@ function TemplateManager({ onBack }) {
                   <input name="right" type="number" value={paddingMm.right} onChange={handlePaddingChange} />
                 </div>
               </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Print Type</legend>
+              <select
+                value={printSize}
+                onChange={e => setPrintSize(e.target.value)}
+              >
+                <option value="full_4r">Full 4R (10.2 x 15.2 cm)</option>
+                <option value="half_4r_vertical">Half 4R Vertical (5.1 x 15.2 cm)</option>
+                <option value="half_4r_horizontal">Half 4R Horizontal (10.2 x 7.6 cm)</option>
+              </select>
             </fieldset>
           </form>
         </div>

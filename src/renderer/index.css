@@ -497,24 +497,18 @@ html,
   font-weight: bold;
   padding: 3px 6px;
   border-radius: 4px;
+  text-transform: uppercase;
+  color: #ffffff; /* All badges will have white text */
 }
 
-.badge.uploaded {
-  background-color: #f39c12;
-}
-
-.badge.failed {
-  background-color: #e74c3c;
-}
-
-.badge.exported {
-  background-color: #27ae60;
-  color: white;
-}
-
-.badge.distributed {
-  background-color: #8e44ad;
-}
+.badge.pending     { background-color: #f39c12; color: #ffffff; } /* Orange */
+.badge.assigned    { background-color: #27dfff; color: #ffffff; } /* Light Blue */
+.badge.editing     { background-color: #3498db; color: #ffffff; } /* Bright Blue */
+.badge.edited      { background-color: #2980b9; color: #ffffff; } /* Darker Blue */
+.badge.exported    { background-color: #27ae60; color: #ffffff; } /* Green */
+.badge.uploaded    { background-color: #0e639c; color: #ffffff; } /* Dark Blue */
+.badge.distributed { background-color: #8e44ad; color: #ffffff; } /* Purple */
+.badge.failed      { background-color: #e74c3c; color: #ffffff; } /* Red */
 
 .photo-count {
   background-color: #0e639c;
@@ -744,6 +738,18 @@ html,
 .setting-item input {
   width: 100%;
   padding: 8px;
+}
+
+.setting-item-box {
+  border: 1px solid #3c3c3c;
+  padding: 20px;
+  border-radius: 5px;
+  margin-top: 20px;
+}
+.setting-item-box legend {
+  padding: 0 10px;
+  color: #d4d4d4;
+  font-weight: bold;
 }
 
 .manager-header {

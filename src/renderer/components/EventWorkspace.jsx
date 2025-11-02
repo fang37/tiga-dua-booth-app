@@ -3,6 +3,48 @@ import PhotoPreviewModal from './PhotoPreviewModal';
 import BatchDistributeModal from './BatchDistributeModal';
 import { useNotification } from './NotificationContext';
 
+function StatusBadge({ status }) {
+  let className = 'badge';
+  let text = status;
+
+  switch (status) {
+    case 'pending':
+      className += ' pending';
+      text = 'Pending Edit';
+      break;
+    case 'assigned':
+      className += ' assigned';
+      text = 'Ready to Edit';
+      break;
+    case 'editing':
+      className += ' editing';
+      text = 'In Editing';
+      break;
+    case 'edited':
+      className += ' edited';
+      text = 'Ready for Grid';
+      break;
+    case 'exported':
+      className += ' exported';
+      text = '✔ Exported';
+      break;
+    case 'uploaded':
+      className += ' uploaded';
+      text = '✔ Uploaded';
+      break;
+    case 'distributed':
+      className += ' distributed';
+      text = '✔ Distributed';
+      break;
+    case 'failed':
+      className += ' failed';
+      text = '✖ Failed';
+      break;
+  }
+
+  return <span className={className}>{text}</span>;
+}
+
 function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
   const [project, setProject] = useState(null);
   const [customerList, setCustomerList] = useState([]);
@@ -53,7 +95,14 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
       window.api.startWatching(projectDetails.folder_path);
     };
 
-    loadProjectAndStartWatcher();
+    if (projectId) {
+      loadProjectAndStartWatcher();
+    }
+
+    const pollInterval = setInterval(() => {
+      console.log("Polling for customer updates...");
+      fetchCustomers();
+    }, 10000); // 10000ms = 10 seconds
 
     const handleDataChanged = () => {
       // console.log('Data changed event received, refreshing customer list...');
@@ -87,6 +136,7 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
     // Cleanup function: stop watching when the component is unmounted
     return () => {
       window.api.stopWatching();
+      clearInterval(pollInterval);
       document.removeEventListener('data-changed', handleDataChanged);
     };
   }, [projectId]);
@@ -119,6 +169,9 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
       setUnassignedPhotos(prev => prev.filter(p => !selectedPhotos.has(p)));
       setSelectedPhotos(new Set());
       loadData();
+
+      await window.api.updateCustomerWorkflowStatus({ customerId: activeCustomer.id, status: 'assigned' });
+      fetchCustomers();
     } else {
       showNotification(`Error assigning photos: ${result.error}`, 'error');
     }
@@ -203,7 +256,7 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
     return <div>Loading project...</div>;
   }
 
-  const photoToShow = previewPhoto || pinnedPhoto;
+  const photoToShow = previewPhoto ? previewPhoto : pinnedPhoto;
 
   const handleRefreshRawPhotos = async () => {
     const photos = await window.api.scanRawPhotos(projectId);
@@ -391,10 +444,7 @@ function EventWorkspace({ projectId, onBack, onGoToGridCreator }) {
                       <span>{cust.voucherCode}</span>
                     </div>
                     <div className="customer-badges">
-                      {cust.workflow_status === 'distributed' && <span className="badge distributed">✔ Distributed</span>}
-                      {cust.workflow_status === 'uploaded' && <span className="badge uploaded">✔ Uploaded</span>}
-                      {cust.workflow_status === 'failed' && <span className="badge failed">✖ Failed</span>}
-                      {cust.workflow_status === 'exported' && <span className="badge exported">✔ Exported</span>}
+                      <StatusBadge status={cust.workflow_status} />
                       <div className="photo-count">{cust.photoCount}</div>
                     </div>
                   </div>

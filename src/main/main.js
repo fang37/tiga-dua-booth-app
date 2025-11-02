@@ -14,6 +14,8 @@ import { distributeToDrive } from './services/googleDriveService.js';
 import { triggerBackup } from './services/backupService.js';
 import { sendLinkToMapper } from './services/apiService.js';
 import { processDistributionForCustomer } from './services/distributionService.js';
+import { startServer } from './services/apiServer.js';
+import { startPrintQueue, stopPrintQueue, getAvailablePrinters } from './services/printService.js';
 import started from 'electron-squirrel-startup';
 import chokidar from 'chokidar';
 
@@ -69,13 +71,14 @@ app.whenReady().then(() => {
   })
 
   initializeDatabase();
+  startServer(); // Start the API server when the app is ready
 
   const apiKey = process.env.API_SECRET_KEY;
   const apiUrl = process.env.API_ENDPOINT;
   if (!apiKey || !apiUrl) {
     console.error('FATAL ERROR: API secrets are missing.');
     console.error('Ensure .env file is next to the executable in production.');
-    
+
     // Show a native error message to the user
     dialog.showErrorBox(
       'Configuration Error',
@@ -209,6 +212,12 @@ app.whenReady().then(() => {
   ipcMain.handle('get-setting', (event, key) => getSetting(key));
 
   ipcMain.handle('save-setting', (event, data) => saveSetting(data));
+
+  ipcMain.handle('start-print-queue', () => startPrintQueue());
+  
+  ipcMain.handle('stop-print-queue', () => stopPrintQueue());
+
+  ipcMain.handle('get-available-printers', () => getAvailablePrinters());
 
   ipcMain.handle('trigger-backup', async () => { return triggerBackup(); });
 

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tiga Dua Booth - Satellite</title>
+  <style>
+    :root {
+      --bg: #1e1e1e;
+      --panel-bg: #252526;
+      --border-color: #3c3c3c;
+      --text-color: #d4d4d4;
+      --text-muted: #a0a0a0;
+      --accent-blue: #0e639c;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text-color);
+      margin: 0;
+      padding: 20px;
+    }
+    #root { display: flex; flex-direction: column; gap: 20px; max-width: 900px; margin: 0 auto; }
+    h1 { color: white; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+    .settings, .customer-list { background: var(--panel-bg); border-radius: 8px; padding: 20px; }
+    .input-group { display: flex; gap: 10px; }
+    input[type="text"] {
+      flex-grow: 1; padding: 10px; background: var(--border-color); border: 1px solid #555;
+      color: var(--text-color); border-radius: 5px; font-size: 16px;
+    }
+    button {
+      background-color: var(--accent-blue); color: white; border: none; padding: 10px 20px;
+      font-size: 16px; border-radius: 5px; cursor: pointer; transition: background-color 0.2s;
+    }
+    button:hover { background-color: #1177bb; }
+    button:disabled { background-color: #555; cursor: not-allowed; }
+    .customer-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    .customer-table th, .customer-table td {
+      padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--border-color);
+    }
+    .customer-table th { color: var(--text-muted); }
+    .status { padding: 5px 10px; border-radius: 4px; font-weight: bold; font-size: 12px; text-transform: uppercase; }
+    .action-btn { font-size: 12px; padding: 5px 10px; }
+    .action-cell { min-width: 140px; text-align: center; }
+
+    /* --- Standard Status Colors --- */
+    .status-pending     { background-color: #f39c12; color: white; }
+    .status-assigned    { background-color: #27dfff; color: white; }
+    .status-editing     { background-color: #3498db; color: white; }
+    .status-edited      { background-color: #2980b9; color: white; }
+    .status-exported    { background-color: #27ae60; color: white; }
+    .status-uploaded    { background-color: #0e639c; color: white; }
+    .status-distributed { background-color: #8e44ad; color: white; }
+    .status-failed      { background-color: #e74c3c; color: white; }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <h1>Tiga Dua Booth - Satellite</h1>
+    <div class="settings">
+      <div class="input-group">
+        <input type="text" id="ip-address" placeholder="Enter Main App IP (e.g., 192.168.1.100)">
+        <button id="connect-btn">Save & Connect</button>
+      </div>
+    </div>
+    <div class="customer-list">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>Project Customers</h2>
+        <button id="refresh-btn" style="font-size: 12px; padding: 5px 10px;">Refresh</button>
+      </div>
+      <table class="customer-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Voucher</th>
+            <th>Status</th>
+            <th style="text-align: center;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="customer-tbody">
+          </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script type="module">
+    // --- STATE ---
+    let API_URL = localStorage.getItem('apiUrl') || '';
+    const ipInput = document.getElementById('ip-address');
+    const connectBtn = document.getElementById('connect-btn');
+    const refreshBtn = document.getElementById('refresh-btn');
+    const customerTbody = document.getElementById('customer-tbody');
+
+    // --- FUNCTIONS ---
+    function setApiUrl(ip) {
+      API_URL = `http://${ip}:4000`;
+      localStorage.setItem('apiUrl', API_URL);
+      ipInput.value = ip.replace('http://', '').replace(':4000', '');
+    }
+
+    function getStatusClass(status) {
+      return `status status-${status || 'pending'}`;
+    }
+
+    async function fetchCustomers(projectId = 1) {
+      if (!API_URL) return;
+      
+      try {
+        const response = await fetch(`${API_URL}/api/project/${projectId}/customers`);
+        if (!response.ok) throw new Error('Failed to fetch from server');
+        
+        const customers = await response.json();
+        customerTbody.innerHTML = '';
+
+        customers.forEach(customer => {
+          const row = document.createElement('tr');
+          const status = customer.workflow_status;
+
+          let actionButton = '';
+          if (status === 'pending') {
+            actionButton = `(Waiting for Photos)`;
+          } else if (status === 'assigned') {
+            actionButton = `<button class="action-btn" data-id="${customer.id}" data-action="START_EDITING">Start Editing</button>`;
+          } else if (status === 'editing') {
+            actionButton = `<button class="action-btn" data-id="${customer.id}" data-action="FINISH_EDITING" style="background-color: #27ae60;">Finish Editing</button>`;
+          } else if (status === 'exported') {
+            actionButton = `<button class="action-btn" data-id="${customer.id}" data-action="FINISH_EDITING" style="background-color: #f39c12;">Re-Edit</button>`;
+          } else if (status === 'edited') {
+            actionButton = `(Ready for Grid)`;
+          } else if (status === 'distributed') {
+            actionButton = `(Complete)`;
+          } else {
+            actionButton = `(${status})`; // Show 'failed', 'uploaded', etc.
+          }
+
+          row.innerHTML = `
+            <td>${customer.name}</td>
+            <td>${customer.voucherCode}</td>
+            <td><span class="${getStatusClass(status)}">${status}</span></td>
+            <td class="action-cell">${actionButton}</td>
+          `;
+          customerTbody.appendChild(row);
+        });
+      } catch (err) {
+        console.error('Error fetching customers:', err);
+        customerTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #e74c3c; padding: 20px;">Connection Failed. Check IP address.</td></tr>`;
+      }
+    }
+
+    async function sendAction(customerId, action) {
+      try {
+        const response = await fetch(`${API_URL}/api/customer/${customerId}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: action }),
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+          // If the server sends a specific error (like 409 Conflict), show it
+          throw new Error(result.error || 'Failed to send action');
+        }
+        fetchCustomers(); // Refresh the list
+      } catch (err) {
+        console.error('Error sending action:', err);
+        alert(`Error: ${err.message}`);
+        fetchCustomers(); // Refresh list even on error to reset button
+      }
+    }
+
+    // --- EVENT LISTENERS ---
+    connectBtn.addEventListener('click', () => {
+      setApiUrl(ipInput.value);
+      fetchCustomers();
+    });
+
+    refreshBtn.addEventListener('click', () => fetchCustomers());
+
+    customerTbody.addEventListener('click', (e) => {
+      if (e.target.classList.contains('action-btn')) {
+        const id = e.target.dataset.id;
+        const action = e.target.dataset.action;
+        
+        e.target.disabled = true;
+        e.target.innerText = 'Working...';
+        sendAction(id, action);
+      }
+    });
+
+    // --- INITIAL LOAD ---
+    if (API_URL) {
+      ipInput.value = API_URL.replace('http://', '').replace(':4000', '');
+      fetchCustomers();
+    }
+  </script>
+</body>
+</html>

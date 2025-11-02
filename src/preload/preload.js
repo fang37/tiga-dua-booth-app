@@ -63,6 +63,9 @@ contextBridge.exposeInMainWorld('api', {
     batchDistributeAll: (data) => ipcRenderer.invoke('batch-distribute-all', data),
     distributeSingleCustomer: (customerId) => ipcRenderer.invoke('distribute-single-customer', customerId),
     showItemInFolder: (path) => ipcRenderer.invoke('show-item-in-folder', path),
+    startPrintQueue: () => ipcRenderer.invoke('start-print-queue'),
+    stopPrintQueue: () => ipcRenderer.invoke('stop-print-queue'),
+    getAvailablePrinters: () => ipcRenderer.invoke('get-available-printers'),
     triggerBackup: () => ipcRenderer.invoke('trigger-backup'),
     onBatchProgress: (callback) => {
         const channel = 'batch-progress-update';

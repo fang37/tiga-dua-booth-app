@@ -1,11 +1,21 @@
 import React, { useState, useEffect } from 'react';
+import { useNotification } from './NotificationContext';
 
 function Settings({ onBack }) {
+  const { showNotification } = useNotification();
   const [qrCodeBaseUrl, setQrCodeBaseUrl] = useState('');
   const [qrColorDark, setQrColorDark] = useState('#444341');
   const [qrColorLight, setQrColorLight] = useState('#00000000');
   const [projectBasePath, setProjectBasePath] = useState('');
   const [isBackingUp, setIsBackingUp] = useState(false);
+
+  // --- NEW: States for Print Queue Settings ---
+  const [stockPhotoPath, setStockPhotoPath] = useState('');
+  const [orphanWaitTime, setOrphanWaitTime] = useState(10);
+  const [restAfterPrints, setRestAfterPrints] = useState(10);
+  const [restDuration, setRestDuration] = useState(5);
+  const [availablePrinters, setAvailablePrinters] = useState([]);
+  const [selectedPrinter, setSelectedPrinter] = useState('');
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -23,6 +33,18 @@ function Settings({ onBack }) {
 
       const base = await window.api.getSetting('projectBasePath');
       if (base) setProjectBasePath(base);
+
+      // --- NEW: Fetch Print Settings ---
+      setStockPhotoPath(await window.api.getSetting('stockPhotoPath', ''));
+      setOrphanWaitTime(await window.api.getSetting('orphanWaitTime', 10));
+      setRestAfterPrints(await window.api.getSetting('restAfterPrints', 10));
+      setRestDuration(await window.api.getSetting('restDuration', 5));
+      // --- NEW: Fetch Printers ---
+      const printers = await window.api.getAvailablePrinters();
+      setAvailablePrinters(printers);
+
+      const savedPrinter = await window.api.getSetting('selectedPrinterName', '');
+      setSelectedPrinter(savedPrinter);
     };
     fetchSettings();
   }, []);
@@ -34,6 +56,14 @@ function Settings({ onBack }) {
     }
   };
 
+
+  const handleBrowseStockPhoto = async () => {
+    const path = await window.api.openFileDialog();
+    if (path) {
+      setStockPhotoPath(path);
+    }
+  };
+
   const handleSave = async () => {
     try {
       // Run all save operations concurrently
@@ -42,20 +72,23 @@ function Settings({ onBack }) {
         window.api.saveSetting({ key: 'qrColorDark', value: qrColorDark }),
         window.api.saveSetting({ key: 'qrColorLight', value: qrColorLight }),
         window.api.saveSetting({ key: 'projectBasePath', value: projectBasePath }),
+
+        // --- NEW: Save Print Settings ---
+        window.api.saveSetting({ key: 'stockPhotoPath', value: stockPhotoPath }),
+        window.api.saveSetting({ key: 'orphanWaitTime', value: orphanWaitTime }),
+        window.api.saveSetting({ key: 'restAfterPrints', value: restAfterPrints }),
+        window.api.saveSetting({ key: 'restDuration', value: restDuration }),
+        window.api.saveSetting({ key: 'selectedPrinterName', value: selectedPrinter }),
       ]);
 
       // Check if ALL operations were successful
       const allSucceeded = results.every(result => result.success);
 
-      if (allSucceeded) {
-        alert('Settings saved successfully! 🎉');
-      } else {
-        // Find the first error message if any failed
-        const firstError = results.find(result => !result.success)?.error || 'Unknown error';
-        throw new Error(firstError); // Throw an error to be caught below
-      }
+      if (!allSucceeded) throw new Error('One or more settings failed to save.');
+
+      showNotification('Settings saved successfully!', 'success');
     } catch (error) {
-      alert(`Error saving settings: ${error.message}`);
+      showNotification(`Error saving settings: ${error.message}`, 'error');
     }
   };
 
@@ -74,6 +107,45 @@ function Settings({ onBack }) {
     <div className="settings-container">
       <button className="btn-secondary back-btn" onClick={onBack}>&larr; Back</button>
       <h1>Settings</h1>
+
+      {/* --- NEW: Print Queue Section --- */}
+      <fieldset className="setting-item-box">
+        <legend>Smart Print Queue</legend>
+        <label>Select Printer</label>
+        <p>Choose the default printer for all print jobs.</p>
+        <select value={selectedPrinter} onChange={(e) => setSelectedPrinter(e.target.value)}>
+          <option value="">-- No Printer Selected --</option>
+          {availablePrinters.map(printerName => (
+            <option key={printerName} value={printerName}>{printerName}</option>
+          ))}
+        </select>
+        <p>Manage the automated printing queue for your main PC.</p>
+        <div className="form-grid">
+          <button className="btn-primary" onClick={() => window.api.startPrintQueue()}>Start Print Queue</button>
+          <button className="btn-secondary" onClick={() => window.api.stopPrintQueue()}>Stop Print Queue</button>
+        </div>
+
+        <label>Stock Photo (for Orphan Jobs)</label>
+        <div className="file-input-wrapper">
+          <input type="text" value={stockPhotoPath} onChange={(e) => setStockPhotoPath(e.target.value)} placeholder="Path to your logo or stock photo..." />
+          <button type="button" onClick={handleBrowseStockPhoto}>Browse</button>
+        </div>
+
+        <div className="form-grid">
+          <div>
+            <label className="sub-label">Orphan Wait (minutes)</label>
+            <input type="number" value={orphanWaitTime} onChange={(e) => setOrphanWaitTime(e.target.value)} />
+          </div>
+          <div>
+            <label className="sub-label">Prints Before Rest</label>
+            <input type="number" value={restAfterPrints} onChange={(e) => setRestAfterPrints(e.target.value)} />
+          </div>
+          <div>
+            <label className="sub-label">Rest Duration (minutes)</label>
+            <input type="number" value={restDuration} onChange={(e) => setRestDuration(e.target.value)} />
+          </div>
+        </div>
+      </fieldset>
 
       <div className="setting-item">
         <label htmlFor="base-path">Project Base Path</label>
@@ -130,9 +202,9 @@ function Settings({ onBack }) {
       <div className="setting-item">
         <label>Database Backup & Restore</label>
         <p>Save your database (projects, customers, templates) to your Google Drive.</p>
-        <button 
-          className="btn-primary" 
-          onClick={handleBackup} 
+        <button
+          className="btn-primary"
+          onClick={handleBackup}
           disabled={isBackingUp}
         >
           {isBackingUp ? 'Backing up...' : 'Backup Database Now'}

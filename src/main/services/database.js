@@ -48,6 +48,7 @@ function initializeDatabase() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       exported_file_path TEXT,
       workflow_status TEXT DEFAULT 'pending',
+      exported_print_size TEXT,
       FOREIGN KEY (voucher_id) REFERENCES vouchers (id) ON DELETE CASCADE
     );
 
@@ -77,10 +78,22 @@ function initializeDatabase() {
       FOREIGN KEY (template_id) REFERENCES templates (id) ON DELETE CASCADE,
       PRIMARY KEY (project_id, template_id)
     );
+
+    CREATE TABLE IF NOT EXISTS print_job_queue (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      customer_id INTEGER NOT NULL,
+      exported_file_path TEXT NOT NULL,
+      template_print_size TEXT NOT NULL, 
+      status TEXT NOT NULL DEFAULT 'pending', 
+      paired_with_id INTEGER,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE
+    );
   `;
 
   // Execute the SQL to create tables
   db.exec(setupSql);
+  // db.prepare("ALTER TABLE customers ADD COLUMN exported_print_size TEXT").run();
   // db.prepare("ALTER TABLE customers ADD COLUMN export_status TEXT DEFAULT 'pending'").run();
   // db.prepare("ALTER TABLE customers ADD COLUMN exported_file_path TEXT").run();
   // db.prepare("ALTER TABLE vouchers ADD COLUMN distribution_status TEXT DEFAULT 'pending'").run();
@@ -110,31 +123,31 @@ function seedTemplates() {
         // 1. Basic 4x1
         stmt.run(
           'Basic 4x1',
-          `{"rows":4,"cols":1,"gap_mm":3,"padding_mm":{"top":4,"bottom":15,"left":4,"right":4},"print_width_mm":51,"print_height_mm":152,"grid_aspect_ratio":"51 / 152","crop_aspect_ratio":1.3870967741935485}`,
+          `{"rows":4,"cols":1,"gap_mm":3,"padding_mm":{"top":4,"bottom":15,"left":4,"right":4},"print_width_mm":51,"print_height_mm":152,"grid_aspect_ratio":"51 / 152","crop_aspect_ratio":1.3870967741935485,"print_size":"half_4r_vertical"}`,
           '#FFFFFF'
         );
         // 2. Basic 3x1
         stmt.run(
           'Basic 3x1',
-          `{"rows":3,"cols":1,"gap_mm":3,"padding_mm":{"top":4,"bottom":15,"left":4,"right":4},"print_width_mm":51,"print_height_mm":152,"grid_aspect_ratio":"51 / 152","crop_aspect_ratio":1.015748031496063}`,
+          `{"rows":3,"cols":1,"gap_mm":3,"padding_mm":{"top":4,"bottom":15,"left":4,"right":4},"print_width_mm":51,"print_height_mm":152,"grid_aspect_ratio":"51 / 152","crop_aspect_ratio":1.015748031496063,"print_size":"half_4r_vertical"}`,
           '#FFFFFF'
         );
         // 3. Basic 1x1
         stmt.run(
           'Basic 1x1',
-          `{"rows":1,"cols":1,"gap_mm":0,"padding_mm":{"top":5,"bottom":20,"left":5,"right":5},"print_width_mm":102,"print_height_mm":152,"grid_aspect_ratio":"102 / 152","crop_aspect_ratio":0.7244094488188977}`,
+          `{"rows":1,"cols":1,"gap_mm":0,"padding_mm":{"top":5,"bottom":20,"left":5,"right":5},"print_width_mm":102,"print_height_mm":152,"grid_aspect_ratio":"102 / 152","crop_aspect_ratio":0.7244094488188977,"print_size":"full_4r"}`,
           '#F5F5F5'
         );
         // 4. Basic 2x2
         stmt.run(
           'Basic 2x2',
-          `{"rows":2,"cols":2,"gap_mm":4,"padding_mm":{"top":5,"bottom":20,"left":5,"right":5},"print_width_mm":102,"print_height_mm":152,"grid_aspect_ratio":"102 / 152","crop_aspect_ratio":0.7154471544715447}`,
+          `{"rows":2,"cols":2,"gap_mm":4,"padding_mm":{"top":5,"bottom":20,"left":5,"right":5},"print_width_mm":102,"print_height_mm":152,"grid_aspect_ratio":"102 / 152","crop_aspect_ratio":0.7154471544715447,"print_size":"full_4r"}`,
           '#FFFFFF'
         );
         // 4. Basic 1x3
         stmt.run(
           'Basic 1x3',
-          `{"rows":1,"cols":3,"gap_mm":4,"padding_mm":{"top":5,"bottom":20,"left":5,"right":5},"print_width_mm":152,"print_height_mm":102,"grid_aspect_ratio":"152 / 102","crop_aspect_ratio":0.5800865800865801}`,
+          `{"rows":1,"cols":3,"gap_mm":4,"padding_mm":{"top":5,"bottom":20,"left":5,"right":5},"print_width_mm":152,"print_height_mm":102,"grid_aspect_ratio":"152 / 102","crop_aspect_ratio":0.5800865800865801,"print_size":"full_4r"}`,
           '#FFFFFF'
         );
       }
@@ -587,17 +600,16 @@ function getAllTemplates() {
 }
 
 function createTemplate({ name, layout_config, background_color }) {
-  let config = JSON.parse(layout_config);
 
   const transaction = db.transaction(() => {
-    const originalWatermarkPath = config.watermark?.path;
+    const originalWatermarkPath = layout_config.watermark?.path;
 
-    if (config.watermark) {
-      config.watermark.path = '';
+    if (layout_config.watermark) {
+      layout_config.watermark.path = '';
     }
 
     const insertStmt = db.prepare('INSERT INTO templates (name, layout_config, background_color) VALUES (?, ?, ?)');
-    const info = insertStmt.run(name, JSON.stringify(config), background_color);
+    const info = insertStmt.run(name, JSON.stringify(layout_config), background_color);
     const newTemplateId = info.lastInsertRowid;
 
     if (originalWatermarkPath) {
@@ -614,11 +626,11 @@ function createTemplate({ name, layout_config, background_color }) {
 
       // 6. Update the config object with the NEW, SAFE, RELATIVE path
       const relativeDestPath = path.join('template_assets', String(newTemplateId), destFileName);
-      config.watermark.path = relativeDestPath;
+      layout_config.watermark.path = relativeDestPath;
 
       // 7. Save the final config to the database
       const updateStmt = db.prepare('UPDATE templates SET layout_config = ? WHERE id = ?');
-      updateStmt.run(JSON.stringify(config), newTemplateId);
+      updateStmt.run(JSON.stringify(layout_config), newTemplateId);
     }
 
     return { success: true, id: newTemplateId };
@@ -703,6 +715,7 @@ async function exportGridImage({ projectPath, imagePaths, template, customerId }
     // 3. Create the new standardized filename
     const outputName = `${customerInfo.voucherCode}-${newIndex}.jpg`;
     const outputPath = path.join(finalFolderPath, outputName);
+    const finalEditedRelativePath = path.join(projectPath, 'final', outputName);
 
     const DPI = 300;
     const MM_PER_INCH = 25.4;
@@ -790,6 +803,9 @@ async function exportGridImage({ projectPath, imagePaths, template, customerId }
       .jpeg({ quality: 95 })
       .withMetadata({ density: DPI })
       .toFile(outputPath);
+
+    db.prepare("UPDATE customers SET exported_file_path = ?, exported_print_size = ? WHERE id = ?")
+    .run(finalEditedRelativePath, layout.print_size, customerId);
 
     return { success: true, path: outputPath };
   } catch (error) {
